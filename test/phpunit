@@ -1,0 +1,9 @@
+#!/usr/bin/env php
+<?
+
+define('TEST_ROOT', dirname(__FILE__));
+define('EXT_ROOT', dirname(__FILE__) . '/../ext');
+
+require_once TEST_ROOT . '/test_config.inc.php';
+
+require EXT_ROOT . '/PHPUnit-3.4.15/phpunit.php';

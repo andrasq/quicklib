@@ -1,4 +1,4 @@
 quicklib
 ========
 
-Quick
+See README for an overview.
