@@ -26,5 +26,5 @@ Quick_Autoloader::getInstance()
 class_exists('Quick_Test_Case');
 class_exists('Quick_Test_Timer');
 
-if (file_exists('test_config_local.inc.php'))
+if (file_exists(dirname(__FILE__) . '/test_config_local.inc.php'))
     include 'test_config_local.inc.php';
