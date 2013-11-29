@@ -23,7 +23,7 @@ class Quick_Db_Mysqli_Adapter
     }
 
     public function mysqli_connect( $host, $user, $password, $dbname, $port, $socket ) {
-        return mysqli_connect($host, $user, $password, $dbname, $port, $socket);
+        return mysqli_connect($host, $user, $password, $dbname, (int)$port, $socket);
     }
 
     public function mysql_close( $link ) {

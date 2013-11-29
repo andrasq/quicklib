@@ -9,10 +9,12 @@ class Quick_Db_Mysql_CreateAllClassesTest
     }
 
     public function testCreateAllClass( ) {
+        global $phpunitDbCreds;
+
         $mysql = new Quick_Db_Mysql_Adapter();
 
         $creds = new Quick_Db_Credentials_Discrete();
-        $conn = new Quick_Db_Mysql_Connection($creds, $mysql);
+        $conn = new Quick_Db_Mysql_Connection($phpunitDbCreds, $mysql);
 
         $db = new Quick_Db_Mysql_Db($conn->createLink(), $mysql);
 
