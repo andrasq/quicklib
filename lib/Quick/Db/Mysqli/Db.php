@@ -17,7 +17,7 @@ class Quick_Db_Mysqli_Db
 
     public function setLink( $link ) {
         if (! $link instanceof Mysqli)
-            throw newQuick__Db_Exception("Db_Mysqli_Db link is not a mysqli object");
+            throw new Quick_Db_Exception("Db_Mysqli_Db link is not a mysqli object");
         return parent::setLink($link);
     }
 

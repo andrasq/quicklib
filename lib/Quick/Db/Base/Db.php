@@ -31,7 +31,10 @@ class Quick_Db_Base_Db
         return $this->_link;
     }
 
-    public function setLogger( Quick_Logger $logger ) {
+    public function setLogger( $logger ) {
+        if (!method_exists($logger, 'debug') || !method_exists($logger, 'info') || !method_exists($logger, 'err'))
+            throw new Quick_Db_Exception("db logger must have debug, info and err methods");
+        $this->_logger = $logger;
         $this->_logger = $logger;
         return $this;
     }

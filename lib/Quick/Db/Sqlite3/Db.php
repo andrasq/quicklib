@@ -10,7 +10,7 @@ class Quick_Db_Sqlite3_Db
 
     public function setLink( $link ) {
         if (! $link instanceof SQLite3)
-            throw newQuick__Db_Exception("Db_Sqlite3_Db link is not an SQLite3 object");
+            throw new Quick_Db_Exception("Db_Sqlite3_Db link is not an SQLite3 object");
         return parent::setLink($link);
     }
 
