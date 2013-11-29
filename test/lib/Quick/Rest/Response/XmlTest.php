@@ -118,4 +118,20 @@ class Quick_Rest_Response_XmlTest
         $xml = $this->_cut->getResponse();
         $this->assertContains("<a>ab\xC2\x80c</a>", $xml);
     }
+
+    public function testXmlShouldBeValidForAllAsciiCharsInInput( ) {
+        $str = implode("", array_map('chr', range(0, 127)));
+        $this->_cut->setValue('a', $str);
+        $xml = $this->_cut->getResponse();
+        $this->assertType('SimpleXMLElement', simplexml_load_string($xml));
+    }
+
+    public function testXmlShouldBeValidForAllExtendedCharactersInInput( ) {
+        // this breaks on parsing &nbsp;
+        $this->markTestSkipped();
+        $str = implode("", array_map('chr', range(129, 255)));
+        $this->_cut->setValue('a', $str);
+        $xml = $this->_cut->getResponse();
+        $this->assertType('SimpleXMLElement', simplexml_load_string($xml));
+    }
 }

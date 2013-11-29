@@ -36,9 +36,9 @@ class Quick_Rest_Response_Xml
     protected function _emitXmlValue( $indent, $fieldName, & $value, $collectionName ) {
         $fieldName = htmlentities($fieldName);
         if ($value === null || is_scalar($value) || is_object($value) && method_exists($value, '__toString')) {
-            // control chars are not valid xml but utf8_encode leaves them; strip them here
-            $value = preg_replace('/[\x01-\x08\x0B-\x0C\x0E-\x1F]/', '', $value);
-            $val = htmlentities(utf8_encode($value));
+            // control chars are not valid xml but utf8_encode leaves them; strip them here; \0 also breaks
+            $value = preg_replace('/[\x00\x01-\x08\x0B-\x0C\x0E-\x1F\x7F]/', '', $value);
+            $val = htmlentities(utf8_encode($value), ENT_QUOTES, 'UTF-8');
             echo "$indent<$fieldName>$val</$fieldName>\n";
         }
         elseif (is_array($value)) {
