@@ -1,0 +1,9 @@
+Installation.
+
+Add ./lib to your autoloader paths to locate classes named Quick_*,
+or symlink or copy lib/Quick into your existing php libraries tree.
+
+Utilities in bin/ can be copied to your executable path.
+
+To run unit tests or Xhprof, get the quicklib extras (or install your own):
+clone https://github.com/andrasq/quicklib-ext.git ./ext
