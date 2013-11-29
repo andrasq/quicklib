@@ -1,0 +1,63 @@
+#!/usr/bin/env php
+<?
+
+/**
+ * socket_echo -- echo the message received on the socket back to the sender
+ * Useful for examining http calls sent to remote servers.
+ *
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
+$_port = 12435;
+$_timeout = 10;
+
+if (isset($argv[1])) $_port = $argv[1];
+
+$stream = acceptconn($sock = opensock($_port), $_timeout);
+$lines = readlines($stream, .02);
+
+/*
+ * php curl uploads files with a second request on the same link, sending
+ * Expect: 100-Continue, waiting for the HTTP/1.1 100 Continue header, and
+ * then sends more headers and uploads the file contents.
+ */
+if (strpos($lines, "\nExpect: 100-continue") !== false) {
+    fputs($stream, "HTTP/1.1 100 Continue\r\n\r\n");
+    $lines .= readlines($stream, .05);
+}
+
+// force a newline to flush the output to the unit test reader
+if (substr_compare($lines, "\n", -1) !== 0) $lines .= "\n";
+
+// echo the input to stdout and back to the socket
+echo $lines;
+fputs($stream, $lines);
+
+fclose($stream);
+fclose($sock);
+
+exit(0);
+
+
+function opensock( $_port ) {
+    $sock = stream_socket_server("tcp://localhost:$_port", $errno, $errstr);
+    if (!$sock) { echo "unable to open socket $_port: $errstr\n"; exit(1); }
+    return $sock;
+}
+
+function acceptconn( $sock, $_timeout ) {
+    $stream = stream_socket_accept($sock, $timeout_s = $_timeout);
+    if (!$stream) {echo "socket_accept failed\n"; exit(1); }
+    return $stream;
+}
+
+function readlines( $stream, $timeout ) {
+    stream_set_blocking($stream, false);
+    do {
+        $line = fgets($stream);
+        if (!$line) { usleep($timeout * 1000000); $line = fgets($stream); }
+        $lines .= $line;
+    } while ($line > '');
+    return $lines;
+}

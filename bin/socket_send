@@ -1,0 +1,23 @@
+#!/usr/bin/env php
+<?
+
+/**
+ * socket_send -- send data to socket_echo, in case you don't have netcat (nc)
+ *
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
+$_port = 12435;
+$_timeout = 10;
+
+if (isset($argv[1])) $_port = $argv[1];
+
+$sock = stream_socket_client("tcp://localhost:$_port", $errno, $errstr);
+if (!$sock) { echo "unable to open socket $_port: $errstr\n"; exit(1); }
+
+// wait for a single connection
+while ($line = fgets(STDIN)) {
+    $nb = fputs($sock, $line);
+    echo "sent $nb bytes\n";
+}

@@ -1,0 +1,157 @@
+#!/usr/bin/env php
+<?
+
+/**
+ * Small command line tool to run the PHPUnit tests on test suite.
+ * Works with PHPUnit 3.4.15.
+ *
+ * 2013-02-06 - AR.
+ * Copyright (C) 2013 Andras Radics.
+ */
+
+if (is_dir(dirname(__FILE__).'/test')) {
+    define('TEST_ROOT', dirname(__FILE__));
+}
+elseif (is_dir(dirname(__FILE__).'/../test')) {
+    define('TEST_ROOT', dirname(__FILE__).'/../test');
+}
+else {
+    define('TEST_ROOT', getcwd());
+}
+define('EXT_ROOT', TEST_ROOT.'/../ext');
+
+require_once TEST_ROOT . '/test_config.inc.php';
+
+require_once 'PHPUnit/Util/Filter.php';
+require_once 'PHPUnit/TextUI/TestRunner.php';
+
+// blacklist this file from being auto-located as a test file
+PHPUnit_Util_Filter::addFileToFilter(__FILE__);
+PHPUnit_Util_Filter::addFileToFilter(TEST_ROOT.'/test_config.inc.php');
+
+/**
+ * Class to the run the unit test suite through PHPUnit.
+ * Locates the tests (by default all files *Test.php in the tests directory),
+ * and runs all the methods of all test classes that start with test.*
+ * Test classes should extends PHPUnit_Framework_Test to be recognized as tests.
+ *
+ * 2013-02-09 - AR.
+ */
+
+class Unit_Test_Runner
+{
+    protected $_prog;
+    protected $_arguments = array();
+    protected $_tests = array();
+    protected $_suite;
+    protected $_result;
+
+    public static function create( ) {
+	return new self();
+    }
+
+    public function extractCommandLineSwitches( $argv ) {
+	$this->_prog = array_shift($argv);
+	while ($argv[0] && $argv[0][0] === '-') {
+	    if ($argv[0] === '-') break;
+	    $opt = array_shift($argv);
+	    if ($opt === '--') break;
+	    $arg = false;
+	    // see PHPUnit/TextUI/TestRunner.php and PHPUnit/TextUI/Command.php for the options handled
+	    switch ($opt) {
+            case '-C':
+            case '--coverage-html':
+                $this->_arguments['reportDirectory'] = $arg = @array_shift($argv);
+                break;
+            case '--filter':
+                $this->_arguments['filter'] = $arg = @array_shift($argv);
+                break;
+	    case '--stop-on-failure':
+		$this->_arguments['stopOnFailure'] = true;
+		break;
+	    case '-v':
+	    case '-vv':
+	    case '--verbose':
+		$this->_arguments['verbose'] = true;
+		break;
+	    default:
+		echo "$opt: unrecognized option\n";
+		exit(1);
+	    }
+	    if ($arg === null) {
+		echo "$opt: missing argument\n";
+		exit(1);
+	    }
+	}
+	$this->_argv = $argv ? $argv : array(TEST_ROOT);
+	return $this;
+    }
+
+    public function gatherTestFiles( ) {
+	$dirs = $this->_argv;
+	$tests = array();
+	foreach ($dirs as $pathname) {
+	    if (is_dir($pathname)) {
+		$finder = new PHPUnit_Runner_IncludePathTestCollector(array($pathname));
+		foreach ($finder->collectTests() as $filename => $n)
+		    $tests[] = $filename;
+	    }
+	    else {
+		$tests[] = $pathname;
+	    }
+	}
+	// avoid "cannot redeclare" errors from PHPUnit, only run each file once
+	$this->_tests = array_unique(array_merge($this->_tests, $tests));
+	return $this;
+    }
+
+    public function createSuiteForTestFiles( ) {
+	$tests = $this->_tests;
+        sort($tests);
+	$suite = new PHPUnit_Framework_TestSuite();
+	foreach ($tests as $file) {
+	    if (is_file($file)) {
+		//PHPUnit_Util_Class::collectStart();
+                $classes = get_declared_classes();
+		require_once $file;
+		//$classes = PHPUnit_Util_Class::collectEnd();
+                $classes = array_diff(get_declared_classes(), $classes);
+		foreach ($classes as $class) {
+                    if (substr_compare($class, "Test", -4) !== 0) continue;
+		    $reflection = new ReflectionClass($class);
+		    if (!$reflection->isAbstract()) {
+			if ($reflection->implementsInterface('PHPUnit_Framework_Test'))
+			    $suite->addTestSuite($reflection);
+		    }
+		}
+	    }
+	    else {
+		throw new Exception("$file: is not a plain file, not supported here");
+	    }
+	}
+	$this->_suite = $suite;
+	return $this;
+    }
+
+    public function runSuite( ) {
+	$runner = new PHPUnit_TextUI_TestRunner();
+	$tm = microtime(true);
+	$this->_result = $runner->run($this->_suite, $this->_arguments);
+	$tm = microtime(true) - $tm;
+	$mem = memory_get_peak_usage();
+	echo sprintf("AR: %.4f sec, %.4f MB\n", $tm, $mem/(1024*1024));
+	return $this;
+    }
+
+    public function finish( ) {
+	return ( $this->_result->wasSuccessful() ? 0 : ($this->_result->errorCount() > 0 ? 2 : 1) );	
+    }
+}
+
+return Unit_Test_Runner::create()
+    ->extractCommandLineSwitches($argv)
+    ->gatherTestFiles()
+    ->createSuiteForTestFiles()
+    ->runSuite()
+    ->finish()
+    ;
