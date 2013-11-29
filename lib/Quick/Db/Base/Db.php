@@ -54,8 +54,8 @@ class Quick_Db_Base_Db
         if ($this->_logger) $tm = microtime(true);
         try {
             $rs = $this->_adapter->mysql_query($sql, $this->_link);
-            if ($this->_logger) $this->_echoQuery($rs, $sql, microtime(true) - $tm);
             if ($rs === false) $this->_throwMysqlException($sql);
+            if ($this->_logger) $this->_echoQuery($rs, $sql, microtime(true) - $tm);
             elseif ($rs === true) return true;
             return $this->_createSelectResult($rs);
         }
@@ -95,16 +95,11 @@ class Quick_Db_Base_Db
     }
 
     protected function _echoQuery( $rs, $sql, $tm ) {
-        if ($rs === false) {
-            $nrows = "ERROR {$this->_adapter->mysql_errno($this->_link)}: {$this->_adapter->mysql_error($this->_link)}";
-        }
-        elseif ($rs === true) {
-            $nrows = "{$this->_adapter->affected_rows($this->_link)} rows affected";
-        }
-        else {
-            $nrows = "{$this->_adapter->num_rows($rs)} rows";
-        }
-        $msg = sprintf("SQL: %s (%.6f) -- %s", $nrows, $tm, $sql);
+        if ($rs === true)
+            $nrows = "db execute: {$this->_adapter->affected_rows($this->_link)} rows affected";
+        else
+            $nrows = "db select: {$this->_adapter->num_rows($rs)} rows";
+        $msg = sprintf("%s (%.6f sec) -- %s", $nrows, $tm, $sql);
         if ($this->_logger) $this->_logger->info($msg);
         else echo $msg . "\n";
     }
@@ -112,7 +107,7 @@ class Quick_Db_Base_Db
     protected function _throwMysqlException( $sql ) {
         $errno = $this->_adapter->mysql_errno($this->_link);
         $error = $this->_adapter->mysql_error($this->_link);
-        throw new Quick_Db_Exception("sql error: $errno: $error; sql = ``$sql''");
+        throw new Quick_Db_Exception("db error: $errno: $error; sql = ``$sql''");
     }
 
     protected function _throwException( $msg ) {

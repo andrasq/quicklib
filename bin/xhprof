@@ -1,0 +1,49 @@
+#!/usr/bin/env php
+<?
+
+$VERSION = "v1.00";
+
+$argv = $_SERVER['argv'];
+
+$_prog = array_shift($argv);
+
+while ($argv && $argv[0][0] === '-') {
+echo "arg = {$argv[0]}\n";
+    if ($argv[0] === '0') break;
+    $arg = false;
+    switch ($opt = array_shift($argv)) {
+    case '-h':
+    case '--help':
+        echo "xhprof $VERSION -- run script and print an execution profile\n";
+        echo "usage:  xhprof SCRIPT [script options ...]\n";
+        break;
+    default:
+        echo "$opt: unrecognized option\n";
+        exit(1);
+        break;
+    }
+    if ($arg === null) {
+        echo "$opt: missing argument\n";
+        exit(1);
+    }
+}
+
+if (!$argv) {
+    echo "no script\n";
+    exit(2);
+}
+
+include 'set_document_root.php';
+include $_SERVER['DOCUMENT_ROOT'] . '/config.inc.php';
+
+$prof = new Quick_Xhprof();
+$prof->profileTime();
+$prof->startProfiling();
+
+include $argv[0];
+
+$prof->stopProfiling();
+$lines = $prof->getProfile();
+echo implode('', $lines);
+
+// print_r( $prof->getRawData() );

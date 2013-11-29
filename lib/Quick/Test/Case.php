@@ -17,9 +17,9 @@ class Quick_Test_Case
     public function getTestDb( ) {
         global $phpunitDbCreds;
         if (!isset($phpunitDbCreds))
-            throw new Quick_Test_Exception("Quick_Test_Case::getDb: \$phpunitDbCreds not set");
+            throw new Quick_Db_Exception("Quick_Test_Case::getDb: \$phpunitDbCreds not set");
         $mysql = new Quick_Db_Mysql_Adapter();
         $conn = new Quick_Db_Mysql_Connection($phpunitDbCreds, $mysql);
-        return new Quick_Db_Mysql_Db($conn->getLink(), $mysql);
+        return new Quick_Db_Mysql_Db($conn->createLink(), $mysql);
     }
 }
