@@ -57,18 +57,23 @@ class Quick_Db_Sqlite3_AdapterTest
 
     public function testAffectedRowsShouldReturnChangeCount( ) {
         $this->_cut->mysql_query("CREATE TEMPORARY TABLE t (i INT)", $this->_link);
-        $this->_cut->mysql_query("INSERT INTO t VALUES (1), (2), (3)", $this->_link);
+        $this->_cut->mysql_query("INSERT INTO t (i) SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3", $this->_link);
         $this->assertEquals(3, $this->_cut->affected_rows($this->_link));
     }
 
     public function testNumRowsReturnsRowCount( ) {
-        // sqlite3 does not provide a count of the result set
-        $this->markTestSkipped();
-
         $this->_cut->mysql_query("CREATE TEMPORARY TABLE t (i INT)", $this->_link);
-        $this->_cut->mysql_query("INSERT INTO t VALUES (1), (2), (3)", $this->_link);
+
+        // empty table has 0 rows
         $rs = $this->_cut->mysql_query("SELECT * FROM t", $this->_link);
-        $this->assertEquals(3, $this->_cut->num_rows($rs));
+        $this->assertEquals(0, $this->_cut->num_rows($rs));
+
+        // sqlite < 3.7.11 does not support multiple insert values, use the UNION workaround
+        $this->_cut->mysql_query("INSERT INTO t (i) SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3", $this->_link);
+
+        // inserted table has 3 rows, but sqlite3 does not provide the result count, test for non-zero instead
+        $rs = $this->_cut->mysql_query("SELECT * FROM t", $this->_link);
+        $this->assertGreaterThanOrEqual(1, $this->_cut->num_rows($rs));
     }
 
     public function testEscapeStringShouldQuoteChars( ) {

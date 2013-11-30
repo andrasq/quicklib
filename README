@@ -1,7 +1,7 @@
 quicklib
 ========
 
-Quicklib PHP Toolkit, Version 0.10
+Quicklib PHP Toolkit, Version 0.11
 
 Copyright (C) 2013 Andras Radics
 Licensed under the Apache License, Version 2.0
@@ -23,16 +23,16 @@ Quick/
   - autoloader (flat, tree; namespaced)
   - unique keys
   - fast logger (file, syslog)
-  - fast db access (mysql)
+  - fast db access (mysql, sqlite)
   - fast key-value store and caches
   - unix co-process control
   - compiled utility for merging sorted numeric ids
   - xhprof wrapper
   - phpunit helpers
   - dependency injector
+  - rest api support
 
 In development:
-  - rest api support (usable)
   - fast fifo data streams (partial)
   - db active records (future)
   - message queue execution (future)

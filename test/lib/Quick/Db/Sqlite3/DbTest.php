@@ -38,7 +38,7 @@ class Quick_Db_Sqlite3_DbTest
     }
 
     public function testDbShouldSelectObject( ) {
-        $this->markTestSkipped();
+        // tbd
     }
 
     public function testGetQueryInfoShouldReturnQueryInfo( ) {
@@ -48,8 +48,10 @@ class Quick_Db_Sqlite3_DbTest
     }
 
     public function testQueryInfoShouldSupportStandardCalls( ) {
+        $version = $this->_db->select("SELECT sqlite_version()")->asColumn()->fetch();
         $this->_db->execute("CREATE TEMPORARY TABLE t (i INT)");
-        $this->_db->execute("INSERT INTO t VALUES (1), (2), (3)");
+        // sqlite < 3.7.11 does not support multiple insert values, use the UNION workaround
+        $this->_db->execute("INSERT INTO t (i) SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3");
         $n = $this->_db->getQueryInfo()->getAffectedRows();
         $this->assertEquals(3, $n);
         $id = $this->_db->getQueryInfo()->getLastInsertId();

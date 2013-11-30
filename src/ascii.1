@@ -1,0 +1,27 @@
+.\"
+.\"  This page Copyright (c) 1994 Andras Radics, andras@cyber.net
+.\"  Freely distributable under the terms of the GPL.
+.\"
+.TH ASCII 1L "19 Jan 1994 " "Berkeley Compatibility" "Linux User's Manual"
+.SH NAME
+ascii \- print the ASCII value of the character entered
+.SH SYNOPSIS
+ascii
+.SH DESCRIPTION
+The
+.B ascii
+command is a small interactive utility that prints the
+corresponding ASCII character codes for the keys struck.  The output
+consists of the character in single quotes (or a dot if it is
+unprintable), followed by the character's ASCII value in decimal,
+octal, and hexadecimal.
+.PP
+The program exits when the same key is struck three times in a row.
+.SH "SEE ALSO"
+ascii(7) \- the ASCII character set (Linux)
+.br
+/usr/pub/ascii \- the ASCII character set (some Unixes)
+.SH BUGS
+It is not very clever about non-printable characters.
+.SH AUTHOR
+Written by Andras Radics to mimic BSD /usr/public/ascii.
