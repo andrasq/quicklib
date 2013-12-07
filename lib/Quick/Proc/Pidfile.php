@@ -6,6 +6,9 @@
  * The process whose pid is stored in the file has access to (owns) the resource.
  * Ownership changes are made under a lock to guarantee atomicity.
  *
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ *
  * 2013-02-08 - AR.
  */
 

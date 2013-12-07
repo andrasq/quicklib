@@ -1,5 +1,13 @@
 <?
 
+/**
+ * Credentials that do not embed readable strings in debug output;
+ * the credentials are read from a global CSV variable instead.
+ *
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
 class Quick_Db_Credentials_GlobalCsv
     implements Quick_Db_Credentials
 {

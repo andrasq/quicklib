@@ -13,7 +13,7 @@ class Quick_Db_Base_Db
 {
     protected $_link, $_adapter;
     protected $_resultFactory, $_queryInfoFactory;
-    protected $_logger;
+    protected $_profiler;
 
     // only derived classes can be created
     protected function __construct( $link, Quick_Db_Adapter $adapter ) {
@@ -31,11 +31,8 @@ class Quick_Db_Base_Db
         return $this->_link;
     }
 
-    public function setLogger( $logger ) {
-        if (!method_exists($logger, 'debug') || !method_exists($logger, 'info') || !method_exists($logger, 'err'))
-            throw new Quick_Db_Exception("db logger must have debug, info and err methods");
-        $this->_logger = $logger;
-        $this->_logger = $logger;
+    public function setProfiling( Quick_Data_Datalogger $profiler = null ) {
+        $this->_profiler = $profiler;
         return $this;
     }
 
@@ -51,11 +48,11 @@ class Quick_Db_Base_Db
 
     public function query( $sql, $tag = '' ) {
         if ($tag !== '') $sql = "$sql /* $tag */";
-        if ($this->_logger) $tm = microtime(true);
+        if ($this->_profiler) $tm = microtime(true);
         try {
             $rs = $this->_adapter->mysql_query($sql, $this->_link);
+            if ($this->_profiler) $this->_profileQuery($rs, $sql, microtime(true) - $tm);
             if ($rs === false) $this->_throwMysqlException($sql);
-            if ($this->_logger) $this->_echoQuery($rs, $sql, microtime(true) - $tm);
             elseif ($rs === true) return true;
             return $this->_createSelectResult($rs);
         }
@@ -94,14 +91,28 @@ class Quick_Db_Base_Db
         return vsprintf($fmt, $args);
     }
 
-    protected function _echoQuery( $rs, $sql, $tm ) {
-        if ($rs === true)
-            $nrows = "db execute: {$this->_adapter->affected_rows($this->_link)} rows affected";
-        else
-            $nrows = "db select: {$this->_adapter->num_rows($rs)} rows";
-        $msg = sprintf("%s (%.6f sec) -- %s", $nrows, $tm, $sql);
-        if ($this->_logger) $this->_logger->info($msg);
-        else echo $msg . "\n";
+    protected function _profileQuery( $rs, $sql, $tm ) {
+        $isError = ($rs === false);
+        $isExecute = ($rs === true);
+        if ($isError) $info = array(
+            'errno' => $errno,
+            'error' => $error,
+            'duration' => sprintf("%.6f", $tm),
+            'query' => $sql,
+        );
+        elseif ($isExecute) $info = array(
+            'affected' => $nrows = $this->_adapter->affected_rows($this->_link),
+            'duration' => sprintf("%.6f", $tm),
+            'query' => $sql,
+        );        
+        else $info = array(
+            // select results
+            'rows' => $nrows = $this->_adapter->num_rows($rs),
+            'duration' => sprintf("%.6f", $tm),
+            'query' => $sql,
+        );
+        $this->_profiler->logData($info);
+        //$msg = sprintf("%s (%.6f sec) -- %s", $nrows, $tm, $sql);
     }
 
     protected function _throwMysqlException( $sql ) {

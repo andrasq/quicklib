@@ -15,16 +15,6 @@ class Quick_Db_Mysql_DbTest_MockMysqlAdapter
     public function affected_rows( $link ) { return 1; }
 }
 
-class Quick_Db_Mysql_DbTest_MockLogger
-    implements Quick_Logger
-{
-    public $lines = array();
-    public function debug($msg) { $this->lines[] = $msg; }
-    public function info($msg) { $this->lines[] = $msg; }
-    public function err($msg) { $this->lines[] = $msg; }
-    public function addFilter(Quick_Logger_Filter $f) { }
-}
-
 class Quick_Db_Mysql_DbExposer
     extends Quick_Db_Mysql_Db
 {
@@ -130,16 +120,19 @@ class Quick_Db_Mysql_DbTest
         $this->assertType('Quick_Db_QueryInfo', $info);
     }
 
-    public function testSetLoggerShouldTurnOnCallLogging( ) {
-        $logger = new Quick_Db_Mysql_DbTest_MockLogger();
-        // use the result set "0" for testing, it will not be freed by SelectResult.
+    public function testSetProfilingShouldTurnOnCallProfiling( ) {
+        $datalogger = new Quick_Data_Datalogger_Array();
+        // use the result set resource id "0" for testing, it will not be freed by SelectResult.
         // Note that mysql only returns true, false, or a non-zero resource id.
         $this->_mysql->expects($this->any())->method('mysql_query')->will($this->returnValue(0));
         $this->_cut->select("SELECT 11");
-        $this->_cut->setLogger($logger);
+        $this->_cut->setProfiling($datalogger);
         $this->_cut->select("SELECT 22");
-        $this->assertEquals(1, count($logger->lines));
-        $this->assertContains("SELECT 22", $logger->lines[0]);
+        $this->_cut->select("UPDATE 33");
+        $data = $datalogger->getData();
+        $this->assertEquals(2, count($data));
+        $this->assertContains("SELECT 22", $data[0]);
+        $this->assertContains("UPDATE 33", $data[1]);
     }
 
     public function xx_testSpeed( ) {

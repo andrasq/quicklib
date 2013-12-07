@@ -11,6 +11,7 @@
 class Quick_Rest_Call_Http
     implements Quick_Rest_Call
 {
+    protected $_profiler;
     protected $_method, $_methodArg;
     protected $_url, $_urlParts = array();
     protected $_params = array(), $_reply = "";
@@ -22,6 +23,11 @@ class Quick_Rest_Call_Http
     public function __construct( $url = null, $method = 'GET', $methodArg = null ) {
         if ($url !== null) $this->setUrl($url);
         $this->setMethod($method, $methodArg);
+    }
+
+    public function setProfiling( Quick_Data_Datalogger $profiler = null ) {
+        $this->_profiler = $profiler;
+        return $this;
     }
 
     public function setMethod( $method, $methodArg = null ) {
@@ -164,6 +170,23 @@ class Quick_Rest_Call_Http
         while (--$maxRedirects >= 0) {
             $reply = curl_exec($ch);
             $info = curl_getinfo($ch);
+            if ($this->_profiler) {
+                $this->_profiler->logData(array(
+                    'url' => $info['url'],
+                    'duration' => sprintf("%.6f", $info['total_time']),
+                    'http_code' => $info['http_code'],
+                    'namelookup_time' => sprintf("%.6f", $info['namelookup_time']),
+                    'connect_time' => sprintf("%.6f", $info['connect_time']),
+                    'starttransfer_time' => sprintf("%.6f", $info['starttransfer_time']),
+                    'total_time' => sprintf("%.6f", $info['total_time']),
+                    'size_upload' => $info['size_upload'],
+                    'speed_upload' => $info['speed_upload'],
+                    'size_download' => $info['size_download'],
+                    'speed_download' => $info['speed_download'],
+                    'primary_ip' => $info['primary_ip'],
+                    'primary_port' => $info['primary_port'],
+                ));
+            }
             $status = isset($info['http_code']) ? $info['http_code'] : 0;
             // if redirected with MovedPermanently (301) or Found (302), try the new location
             if ($status != 301 && $status != 302) {

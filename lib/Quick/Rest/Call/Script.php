@@ -15,6 +15,12 @@ class Quick_Rest_Call_Script
 {
     protected $_method, $_methodArg, $_switches = array();
     protected $_url, $_params = array();
+    protected $_profiler;
+
+    public function setProfiling( Quick_Data_Datalogger $profiler = null ) {
+        $this->_profiler = $profiler;
+        return $this;
+    }
 
     // the method is the php script to run and its first argument
     public function setMethod( $method, $methodArg = null /* , $switches */ ) {

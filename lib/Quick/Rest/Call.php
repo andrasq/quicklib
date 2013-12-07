@@ -8,6 +8,7 @@
  */
 
 interface Quick_Rest_Call {
+    public function setProfiling(Quick_Data_Datalogger $profiler = null);
     public function setMethod($method /*, $methodArg */);
     public function setHeader($name, $value);
     public function setParam($name, $value);

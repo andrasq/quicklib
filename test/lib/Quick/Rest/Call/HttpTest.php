@@ -31,10 +31,24 @@ class Quick_Rest_Call_HttpExposer
 class Quick_Rest_Call_HttpTest
     extends Quick_Test_Case
 {
+    static $echoProc;
+
+    static public function setUpBeforeClass( ) {
+        self::$echoProc = new Quick_Proc_Process(TEST_ROOT . '/../bin/socket_echo 12345');
+        // wait until process starts and opens the listener socket
+        // this delay is about the same as for "time php -v", .03 sec, so reuse the proc for all tests
+        usleep(40000);
+    }
+
+    static public function tearDownAfterClass( ) {
+        self::$echoProc->kill()->close();
+    }
+
     public function setUp( ) {
         $this->_cut = new Quick_Rest_Call_HttpExposer();
         $this->_cut->setUrl('http://localhost:12345/path/to/page.php');
         $this->_cut->setMethod('GET');
+        $this->_echoProc = self::$echoProc;
     }
 
     public function validUrlProvider( ) {
@@ -177,6 +191,23 @@ class Quick_Rest_Call_HttpTest
         $this->assertEquals(array(), get_object_vars($this->_cut));
     }
 
+    public function testSetProfilingShouldLogStats( ) {
+        $this->_cut->setProfiling($datalogger = new Quick_Data_Datalogger_Array());
+        $this->_cut->setParam('a', 123);
+        $this->_cut->setParam('b', 456);
+        $this->_runCall();
+        $data = $datalogger->getData();
+        $this->assertContains("a=123&b=456", $data[0]['url']);
+        $this->assertGreaterThan(0.0, $data[0]['duration']);
+    }
+
+    public function testSetProfilingShouldLogEachCall( ) {
+        $this->_cut->setProfiling($datalogger = new Quick_Data_Datalogger_Array());
+        $this->_runCall();
+        $this->_runCall();
+        $this->assertEquals(2, count($datalogger->getData()));
+    }
+
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
         $timer->calibrate(1000, array($this, '_testSpeedNull'), array(null));
@@ -201,13 +232,9 @@ class Quick_Rest_Call_HttpTest
     // make the http call and capture the message received by the remote
     protected function _runCall( ) {
         if (!function_exists('curl_init')) $this->markTestSkipped("curl not available, cannot test");
-        $echo = new Quick_Proc_Process(TEST_ROOT . '/../bin/socket_echo 12345');
-        // wait until process starts and opens the listener socket
-        usleep(150000);
+        $echo = $this->_echoProc;
         $reply = $this->_cut->call();
-        usleep(40000);
         $output = $echo->getOutput(1);
-        $echo->close();
         return $output;
     }
 

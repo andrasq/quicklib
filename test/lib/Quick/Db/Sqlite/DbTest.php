@@ -16,7 +16,7 @@ class Quick_Db_Sqlite_DbTest
     }
 
     public function setUp( ) {
-        if (!function_exists('sqlite_open')) $this->markTestSkipped();
+        if (!function_exists('sqlite_open')) $this->markTestSkipped("sqlite not available");
         global $testDbCreds;
         $this->_db = $this->_createDb($testDbCreds);
     }

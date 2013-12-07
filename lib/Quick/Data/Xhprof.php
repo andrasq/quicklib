@@ -3,6 +3,9 @@
 /**
  * Wrapper for the xhprof execution profiler php extension.
  *
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ *
  * 2013-02-23 - AR.
  */
 

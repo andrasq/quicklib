@@ -1,5 +1,10 @@
 <?
 
+/**
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
 class Quick_Db_Sqlite3_Db
     extends Quick_Db_Base_Db
     implements Quick_Db_Engine

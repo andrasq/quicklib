@@ -5,6 +5,9 @@
  * Allows bidirectional communication to a child process.
  * Best for sending single-line commands and retrieving single-line responses.
  *
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ *
  * 2013-02-06 - AR.
  */
 
@@ -104,11 +107,18 @@ class Quick_Proc_Process {
     }
 
     public function kill( $signal = self::SIGTERM ) {
-        if ($this->_pid && function_exists('posix_kill')) {
+        if ($this->_proc) {
+            proc_terminate($this->_proc, $signal);
+        }
+        elseif ($this->_pid && function_exists('posix_kill')) {
             // kill all processes in this process group, both the shell and the running process
             $ok = posix_kill($this->_pid, $signal);
             // do not yield the cpu here, proc_close() will
         }
+	elseif ($this->_pid) {
+	    // awkward without posix, but not impossible...
+	    `/bin/kill -{$signal} {$this->_pid} > /dev/null 2>&1`;
+	}
         return $this;
     }
     

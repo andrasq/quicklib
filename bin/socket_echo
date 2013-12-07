@@ -14,27 +14,32 @@ $_timeout = 10;
 
 if (isset($argv[1])) $_port = $argv[1];
 
-$stream = acceptconn($sock = opensock($_port), $_timeout);
-$lines = readlines($stream, .02);
+$sock = opensock($_port);
 
-/*
- * php curl uploads files with a second request on the same link, sending
- * Expect: 100-Continue, waiting for the HTTP/1.1 100 Continue header, and
- * then sends more headers and uploads the file contents.
- */
-if (strpos($lines, "\nExpect: 100-continue") !== false) {
-    fputs($stream, "HTTP/1.1 100 Continue\r\n\r\n");
-    $lines .= readlines($stream, .05);
+while (true) {
+    $stream = acceptconn($sock, $_timeout);
+    // wait for sender to notice the accept and send input; .001 is too short for php curl
+    $lines = readlines($stream, .0025);
+
+    /*
+     * php curl uploads files with a second request on the same link, sending
+     * Expect: 100-Continue, waiting for the HTTP/1.1 100 Continue header, and
+     * then sends more headers and uploads the file contents.
+     */
+    if (strpos($lines, "\nExpect: 100-continue") !== false) {
+        fputs($stream, "HTTP/1.1 100 Continue\r\n\r\n");
+        $lines .= readlines($stream, .05);
+    }
+
+    // force a newline to flush the output to the unit test reader
+    if (substr_compare($lines, "\n", -1) !== 0) $lines .= "\n";
+
+    // echo the input to stdout and back to the socket
+    echo $lines;
+    fputs($stream, $lines);
+    fclose($stream);
 }
 
-// force a newline to flush the output to the unit test reader
-if (substr_compare($lines, "\n", -1) !== 0) $lines .= "\n";
-
-// echo the input to stdout and back to the socket
-echo $lines;
-fputs($stream, $lines);
-
-fclose($stream);
 fclose($sock);
 
 exit(0);
@@ -52,12 +57,15 @@ function acceptconn( $sock, $_timeout ) {
     return $stream;
 }
 
+// read all pending input and wait $timeout sec for more to arrive
 function readlines( $stream, $timeout ) {
     stream_set_blocking($stream, false);
+    $until = microtime(true) + $timeout;
     do {
         $line = fgets($stream);
-        if (!$line) { usleep($timeout * 1000000); $line = fgets($stream); }
+        if ($line > '') $until = microtime(true) + $timeout;
+        if (!$line) usleep(1000);
         $lines .= $line;
-    } while ($line > '');
+    } while ($line > '' || microtime(true) < $until);
     return $lines;
 }

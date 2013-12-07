@@ -11,7 +11,7 @@ class Quick_Db_Mysqli_ConnectionTest
     extends Quick_Db_Mysql_ConnectionTest
 {
     public function setUp( ) {
-        if (!function_exists('mysqli_connect')) $this->markTestSkipped();
+        if (!function_exists('mysqli_connect')) $this->markTestSkipped("mysqli not available");
         parent::setUp();
     }
 

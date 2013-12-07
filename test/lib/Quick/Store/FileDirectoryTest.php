@@ -18,7 +18,7 @@ class Quick_Store_FileDirectoryTest
     }
 
     public function tearDown( ) {
-//        system("rm -rf $this->_testdir");
+        system("rm -rf $this->_testdir");
     }
 
     public function testSetShouldSetFileContentsPrefixedWithPrefix( ) {
@@ -90,5 +90,25 @@ class Quick_Store_FileDirectoryTest
         $contents = file_get_contents($filename);
         unlink($filename);
         $this->assertEquals("1234", $contents);
+    }
+
+    public function xx_testSpeed( ) {
+        $timer = new Quick_Test_Timer();
+        $timer->calibrate(2000, array($this, '_testSpeedNull'), array($this->_cut));
+        $tm = microtime(true);
+        for ($i=0; $i<10000; ++$i) $this->_cut->set("a-$i", $i);
+        $tm = microtime(true) - $tm;
+        echo "AR: FileDirectory: set 10k items in $tm sec\n";
+        // ext3: 1k in 0.045 sec, 10k in 0.51 sec, 100k in 6.43 sec
+        // shm: 10k in .12 sec
+        echo $timer->timeit(100, 'getNames', array($this, '_testSpeedGetNames'), array($this->_cut));
+        // ext3: 10k names @ 73/sec; w/ glob: 75.5/sec; shm: @ 84/sec, shm w/ glob: @ 94/sec
+    }
+
+    public function _testSpeedNull( $cut ) {
+    }
+
+    public function _testSpeedGetNames( $cut ) {
+        return $this->_cut->getNames();
     }
 }

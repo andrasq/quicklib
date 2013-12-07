@@ -24,16 +24,17 @@ class Quick_Db_Mysql_CreateAllClassesTest
 
         $selectFetcher = new Quick_Db_Mysql_SelectFetcher($rs, 'fetchHash', $selectResult, null);
 
-        //$selectFetcher = new Quick_Db_Mysql_DbInfo($db);
+        // only in dev:
+        //$dbInfo = new Quick_Db_Mysql_DbInfo($db);
 
         $resultInfo = new Quick_Db_Mysql_ResultInfo($rs, new Quick_Db_Mysql_Adapter(null));
 
+        // only in dev:
         //$dbTable = new Quick_Db_Mysql_Table($db, 'table_name');
     }
 
     public function testFindClassFiles( ) {
         $files = $this->_findClassFiles();
-        //$this->assertEquals(9, count($files));
         $this->assertEquals(9-2, count($files));
     }
 
