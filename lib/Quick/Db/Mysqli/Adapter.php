@@ -63,7 +63,7 @@ class Quick_Db_Mysqli_Adapter
     }
 
     public function mysql_real_escape_string( $str, $link ) {
-        return is_object($link) ? mysqli_real_escape_string($str, $link) : addslashes($str);
+        return is_object($link) ? mysqli_real_escape_string($link, $str) : addslashes($str);
     }
 
     public function reconnect( $link ) {
