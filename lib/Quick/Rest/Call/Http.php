@@ -86,7 +86,9 @@ class Quick_Rest_Call_Http
             break;
         case 'GET':
         case 'POST':
+        case 'POSTFILE':
         case 'PUT':
+        case 'PUTFILE':
         case 'DELETE':
         case 'HEAD':
         case 'UPLOAD':
@@ -133,18 +135,28 @@ class Quick_Rest_Call_Http
             curl_setopt($ch, CURLOPT_POST, 1);
             curl_setopt($ch, CURLOPT_POSTFIELDS, array("$this->_methodArg" => "@{$this->_methodArg}"));
             break;
+        case 'PUTFILE':
+        case 'POSTFILE':
+            // PUT or POST the file contents in the request.
+            // Unlike UPLOAD, php will deliver the data in the call body, not in a tempfile
+            curl_setopt($ch, ($method === 'PUTFILE' ? CURLOPT_PUT : CURLOPT_POST), 1);
+            curl_setopt($ch, CURLOPT_INFILE, $fp = @fopen($this->_methodArg, "r"));
+            if (!$fp) throw new Quick_Rest_Exception("$this->_methodArg: unable to read file");
+            curl_setopt($ch, CURLOPT_INFILESIZE, filesize($this->_methodArg));
+            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Length: ' . filesize($this->_methodArg)));
+            break;
         case 'PUT':
-            // put is like post but used to update the value of an entity;
-            // fall through to POST
         case 'POST':
+            // PUT is like POST but used to update the value of an entity
             if (isset($this->_methodArg)) {
+                // if body is provided, pass any provided params in the url and send the body in the body
                 $body = $this->_methodArg;
                 if ($params) curl_setopt($ch, CURLOPT_URL, $url = $this->_appendParamsToUrl($url, $params));
             }
             else {
+                // if only params provided, pass them in the post body
                 $body = http_build_query($params);
             }
-            //curl_setopt($ch, CURLOPT_HTTPGET, false);
             curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
             if ($body > '' && substr_compare($body, "\n", -1) !== 0) $body .= "\n";
             curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
@@ -183,8 +195,9 @@ class Quick_Rest_Call_Http
                     'speed_upload' => $info['speed_upload'],
                     'size_download' => $info['size_download'],
                     'speed_download' => $info['speed_download'],
-                    'primary_ip' => $info['primary_ip'],
-                    'primary_port' => $info['primary_port'],
+                    // not all versions of curl have these:
+                    'primary_ip' => isset($info['primary_ip']) ? $info['primary_ip'] : '',
+                    'primary_port' => isset($info['primary_port']) ? $info['primary_port'] : '',
                 ));
             }
             $status = isset($info['http_code']) ? $info['http_code'] : 0;
@@ -207,7 +220,7 @@ class Quick_Rest_Call_Http
     protected function _appendParamsToUrl( $url, $params ) {
         $url .=
             ((strpos($url, '?') === false) ? '?' : '&') .
-            (is_array($params) ? http_build_query($params) : urlencode("$params"));
+            (is_array($params) ? http_build_query($params) : $params);
         return $url;
     }
 }

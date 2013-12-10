@@ -32,7 +32,7 @@ while (true) {
     }
 
     // force a newline to flush the output to the unit test reader
-    if (substr_compare($lines, "\n", -1) !== 0) $lines .= "\n";
+    if ($lines > "" && substr_compare($lines, "\n", -1) !== 0) $lines .= "\n";
 
     // echo the input to stdout and back to the socket
     echo $lines;
@@ -61,6 +61,7 @@ function acceptconn( $sock, $_timeout ) {
 function readlines( $stream, $timeout ) {
     stream_set_blocking($stream, false);
     $until = microtime(true) + $timeout;
+    $lines = "";
     do {
         $line = fgets($stream);
         if ($line > '') $until = microtime(true) + $timeout;

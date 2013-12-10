@@ -36,8 +36,8 @@ class Quick_Rest_Call_HttpTest
     static public function setUpBeforeClass( ) {
         self::$echoProc = new Quick_Proc_Process(TEST_ROOT . '/../bin/socket_echo 12345');
         // wait until process starts and opens the listener socket
-        // this delay is about the same as for "time php -v", .03 sec, so reuse the proc for all tests
-        usleep(40000);
+        // this delay is about the same as for "time php -v", as much as .15 sec, so reuse the proc for all tests
+        usleep(150000);
     }
 
     static public function tearDownAfterClass( ) {
@@ -125,12 +125,25 @@ class Quick_Rest_Call_HttpTest
     }
 
     public function testUploadShouldSendFileToRemote( ) {
-        //$this->_cut->setUrl("http://aradics.com/server_vars.php");
         $this->_cut->setMethod('UPLOAD', TEST_ROOT . "/../bin/socket_echo");
         $this->_cut->setParam('filename', "socket_echo");
         $message = $this->_runCall();
-        //$this->assertBodyContainsLine('$stream = acceptconn($sock = opensock($_port), $_timeout);', $message);
-        $this->assertBodyContainsLine(" * socket_echo -- echo the message received on the socket back to the sender", $message);
+        $this->assertContains("filename=socket_echo", $message);
+        $this->assertContains(file_get_contents(TEST_ROOT . "/../bin/socket_echo"), $message);
+    }
+
+    public function testPostFileShouldSendFileToRemote( ) {
+        $file = TEST_ROOT . "/../bin/socket_echo";
+        $this->_cut->setMethod('POSTFILE', $file);
+        $message = $this->_runCall();
+        $this->assertContains(file_get_contents($file), $message);
+    }
+
+    public function testPutFileShouldSendFileToRemote( ) {
+        $file = TEST_ROOT . "/../bin/socket_echo";
+        $this->_cut->setMethod('PUTFILE', $file);
+        $message = $this->_runCall();
+        $this->assertContains(file_get_contents($file), $message);
     }
 
     public function testSetHeaderShouldSaveHeader( ) {
@@ -233,6 +246,11 @@ class Quick_Rest_Call_HttpTest
     protected function _runCall( ) {
         if (!function_exists('curl_init')) $this->markTestSkipped("curl not available, cannot test");
         $echo = $this->_echoProc;
+        $tempfile = new Quick_Test_Tempfile();
+        // use nc if available... @FIXME: can`t get nc to work
+        //if (file_exists("/bin/nc")) $echo = new Quick_Proc_Process("exec nc -l 12345 > $tempfile 2>&1 ; cat $tempfile");
+        //if (file_exists("/bin/nc")) $echo = new Quick_Proc_Process("exec nc -l 12345 > /tmp/ar.out 2>&1 ; cat /tmp/ar.out");
+        //usleep(150000);
         $reply = $this->_cut->call();
         $output = $echo->getOutput(1);
         return $output;
