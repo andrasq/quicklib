@@ -12,6 +12,7 @@
 class Quick_Autoloader_Engine
 {
     protected $_nodes = array();
+    protected $_trees;
     protected $_classes = array();
     protected $_installed = false;
 
@@ -19,7 +20,9 @@ class Quick_Autoloader_Engine
     }
 
     public static function getInstance( ) {
+        global $__global_mb_autoloader;
         static $instance;
+        if (isset($__global_mb_autoloader)) return $__global_mb_autoloader;
         return $instance ? $instance : $instance = new Quick_Autoloader_Engine();
     }
 
@@ -36,7 +39,13 @@ class Quick_Autoloader_Engine
 
     public function addSearchTree( $dirname, $extensions = ".php" ) {
         // caller should verify paths, autoloader just tests if file exists
-        $this->_nodes[] = array('mode' => 'tree', 'path' => $dirname, 'extensions' => explode(',', $extensions));
+        if (strpos($extensions, ",") === false)
+            // much faster to test for comma-list than to explode if not present
+            $this->_trees[] = array(realpath($dirname), $extensions);
+        else
+            foreach (explode(',', $extensions) as $ext)
+                $this->_trees[] = array(realpath($dirname), $ext);
+        //$this->_nodes[] = array('mode' => 'tree', 'path' => $dirname, 'extensions' => explode(',', $extensions));
         return $this;
     }
 
@@ -57,16 +66,41 @@ class Quick_Autoloader_Engine
             return true;
         }
         else {
-            if (($p = strrpos($classname, '\\')) !== false) {
-                $namespace = substr($classname, 0, $p);
-                $classfile = substr($classname, $p);
+            // optimize for the case of _ separated components in a directory tree
+            foreach ($this->_trees as $info) {
+                if (file_exists($classpath = $info[0] . '/' . str_replace('_', '/', $classname) . $info[1])) {
+                    // note: the only reason to test for class_exists here is for testing/timing
+                    // note: require_once is 20% slower... so avoid duplicating names with different extensions!
+                    require $classpath;
+                    if (class_exists($classname, false) || interface_exists($classname, false)) return true;
+                }
             }
-            else {
-                $namespace = '';
-                $classfile = $classname;
+
+            // if the fast path did not find a match, try the slow ones
+            foreach ($this->_trees as $info) {
+                list($dir, $ext) = $info;
+                $classpath = $dir . '/' . str_replace(array('::', '_', '\\'), '/', $classname) . $ext;
+                if (file_exists($classpath)) {
+                    if (!class_exists($classname, false) && !interface_exists($classname)) {
+                        require $classpath;
+                    }
+                    if (class_exists($classname, false) || interface_exists($classname, false))
+                        return true;
+                }
             }
+
+            if ($this->_nodes)
             foreach ($this->_nodes as $node) {
                 if ($node['mode'] === 'flat') {
+                    if (($p = strrpos($classname, '\\')) !== false) {
+                        $namespace = substr($classname, 0, $p);
+                        $classfile = substr($classname, $p);
+                    }
+                    else {
+                        $namespace = '';
+                        $classfile = $classname;
+                    }
+
                     // 183k lookups / sec if found by 1st node, 100k by 2nd, 70k by 3rd, 52k by 4th (one extension)
                     if ($this->_loadClassFromPath("{$node['path']}/$classfile", $classname, $node['extensions'])) {
                         return true;
@@ -106,6 +140,7 @@ class Quick_Autoloader_Engine
         if (function_exists('spl_autoload_unregister')) {
             return spl_autoload_unregister(array($this, 'autoload'));
         }
+        return false;
     }
 
     public function install( ) {
@@ -113,15 +148,16 @@ class Quick_Autoloader_Engine
             return $this;
 
         if (function_exists('spl_autoload_register')) {
+            // nb: spl makes a small app 2% slower than using __autoload() directly
             if (!spl_autoload_register(array($this, 'autoload')))
                 throw new Exception("unable to register autoloader");
         }
         elseif (!function_exists('__autoload')) {
-            global $__global_mb_autoloader;
-            $__global_mb_autoloader = $this;
+            global $__global_qk_autoloader;
+            $__global_qk_autoloader = $this;
             function __autoload( $classname ) {
-                global $__global_mb_autoloader;
-                if ($__global_mb_autoloader->autoload($classname))
+                global $__global_qk_autoloader;
+                if ($__global_qk_autoloader->autoload($classname))
                     return;
                 elseif (function_exists('spl_autoload'))
                     spl_autoload($classname);
@@ -138,12 +174,11 @@ class Quick_Autoloader_Engine
     }
 
     protected function _loadClassFromPath( $classnamepath, $classname, Array $extensions ) {
+        if (class_exists($classname, false) || interface_exists($classname, false)) return true;
         if (!$extensions) $extensions = array('');
         foreach ($extensions as $ext) {
             if (file_exists($classpath = "$classnamepath{$ext}")) {
-                if (!class_exists($classname, false) && !interface_exists($classname, false)) {
-                    require $classpath;
-                }
+                require $classpath;
                 if (class_exists($classname, false) || interface_exists($classname, false))
                     return true;
             }

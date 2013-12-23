@@ -31,12 +31,12 @@ class Quick_Store_FileDirectory
     }
 
     public function set( $name, $value ) {
-        $nb = file_put_contents($this->_filename($name), (string)$value, LOCK_EX);
+        $nb = file_put_contents($this->getFilename($name), (string)$value, LOCK_EX);
         return $nb !== false;
     }
 
     public function add( $name, $value ) {
-        $fp = @fopen($this->_filename($name), "x", $this->_createMode);
+        $fp = @fopen($this->getFilename($name), "x", $this->_createMode);
         if ($fp === false) return false;
         $nb = @fwrite($fp, (string)$value);
         flock($fp, LOCK_UN);
@@ -44,15 +44,15 @@ class Quick_Store_FileDirectory
     }
 
     public function get( $name ) {
-        return $this->_readfile($this->_filename($name));
+        return $this->_readfile($this->getFilename($name));
     }
 
     public function delete( $name ) {
-        return @unlink($this->_filename($name));
+        return @unlink($this->getFilename($name));
     }
 
     public function exists( $name ) {
-        return file_exists($this->_filename($name));
+        return file_exists($this->getFilename($name));
     }
 
     public function getNames( ) {
@@ -73,7 +73,7 @@ class Quick_Store_FileDirectory
             return "$this->_dir/$this->_prefix$name";
     }
 
-    protected function _filename( $name ) {
+    public function getFilename( $name ) {
         return "$this->_dir/$this->_prefix$name";
     }
 

@@ -70,7 +70,7 @@ class Quick_Rest_AppRunnerTest
         $this->_cut->setRoute('GET://call/name', 123);
     }
 
-    public function testRunRequestShouldInvokeRoutedCallback( ) {
+    public function testRunRequestShouldInvokeRouteCallbackString( ) {
         $id = uniqid();
         $request = $this->_makeRequest('POST', '/call/path', array('a' => 1), array('b' => $id));
 

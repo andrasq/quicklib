@@ -13,6 +13,7 @@
  */
 
 class Quick_Rest_Request_PathParams
+    extends Quick_Data_StringParams
 {
     protected $_template, $_path;
 
@@ -24,25 +25,14 @@ class Quick_Rest_Request_PathParams
     }
 
     public function setTemplate( $template ) {
-        $this->_template = $this->_normalizePath($template);
-        return $this;
+        return parent::setTemplate($this->_normalizePath($template));
     }
 
     public function getParams( $path ) {
-        $params = array();
-        $template = explode('/', $this->_template);
-        $pathparts = explode('/', $this->_normalizePath($path));
-        foreach ($template as $ix => $name) {
-            if (!isset($pathparts[$ix]))
-                throw new Quick_Rest_Exception("$path: exptected more arguments for template $this->_template");
-            if ($name === $pathparts[$ix] && ($name === '' || $name[0] !== '{'))
-                continue;
-            if ($name[0] === '{')
-                $params[trim($name, '{}')] = isset($pathparts[$ix]) ? $pathparts[$ix] : null;
-            else
-                throw new Quick_Rest_Exception("path params error: path $path does not match template $this->_template");
-        }
-        return $params;
+        if (($params = parent::getParams($path = $this->_normalizePath($path))) !== false)
+            return $params;
+        else
+            throw new Quick_Rest_Exception("path params error: path $path does not match template $this->_template");
     }
 
     protected function _normalizePath( $path ) {

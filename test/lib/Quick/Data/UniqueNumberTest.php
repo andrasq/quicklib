@@ -36,7 +36,7 @@ class Quick_Data_UniqueNumberTest
         $cut = $this->_cut->$asType();
         $len = strlen($cut->fetch());
         $this->assertEquals($digitCount, $len);
-        for ($i=0; $i<10000; ++$i)
+        for ($i=0; $i<2000; ++$i)
             $this->assertEquals($len, strlen($cut->fetch()));
     }
 
@@ -45,13 +45,13 @@ class Quick_Data_UniqueNumberTest
      */
     public function testFetchShouldReturnUniqueValues( $asType ) {
         $cut = $this->_cut->$asType();
-        for ($i=0; $i<10000; ++$i)
+        for ($i=0; $i<2000; ++$i)
             $x[] = $cut->fetch();
         $this->assertEquals($x, array_unique($x));
     }
 
     public function testStringCastShouldReturnUniqueValues( ) {
-        for ($i=0; $i<10000; ++$i)
+        for ($i=0; $i<2000; ++$i)
             $x[] = (string)($this->_cut);
         $this->assertEquals($x, array_unique($x));
     }

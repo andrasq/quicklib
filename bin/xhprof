@@ -11,6 +11,8 @@ while ($argv && $argv[0][0] === '-') {
     if ($argv[0] === '0') break;
     $arg = false;
     switch ($opt = array_shift($argv)) {
+    case '--':
+        break;
     case '-h':
     case '--help':
         echo "xhprof $VERSION -- run script and print an execution profile\n";
@@ -41,6 +43,8 @@ $prof = new Quick_Data_Xhprof();
 $prof->profileTime();
 $prof->startProfiling();
 
+$_SERVER['argv'] = $argv;
+$_SERVER['argc'] = count($argv);
 include $argv[0];
 
 $prof->stopProfiling();

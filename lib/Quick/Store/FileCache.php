@@ -19,7 +19,7 @@ class Quick_Store_FileCache
     implements Quick_Store
 {
     protected $_dirname, $_prefix, $_ttl;
-    protected $_nextStatcacheClear_tm = 0, $_statcacheClearInterval = .005;
+    protected $_nextStatcacheClear_tm = 0, $_statcacheClearInterval = .05;
 
     public function __construct( $dirname, $prefix, $ttl ) {
         $this->_dirname = $dirname;
@@ -50,7 +50,7 @@ class Quick_Store_FileCache
 
     public function get( $name ) {
         if (($now_tm = microtime(true)) > $this->_nextStatcacheClear_tm) {
-            // we accept not seeing for up to .005 sec newly updated values, it boosts get() throughput 50%
+            // we accept not seeing newly updated values for up to .05 sec
             clearstatcache();
             $this->_nextStatcacheClear_tm = $now_tm + $this->_statcacheClearInterval;
         }

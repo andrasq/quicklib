@@ -12,7 +12,7 @@ class Quick_Rest_Call_HttpExposer
     }
 
     public function getHeaders( ) {
-        return $this->_headers;
+        return array_map(create_function('$s', 'return substr($s, strpos($s, ": ")+2);'), $this->_headers);
     }
 
     public function getParams( ) {
@@ -118,38 +118,53 @@ class Quick_Rest_Call_HttpTest
     public function testCallShouldSendMethodToRemote( ) {
         $message = $this->_runCall();
         $this->assertHeaderContainsString('GET', $message);
-        $this->_cut->setMethod('Put', TEST_ROOT . "/../bin/socket_echo");
-        $this->_cut->setParam('filename', "socket_echo");
+        $this->_cut->setMethod('Put', TEST_ROOT . "/phpunit");
+        $this->_cut->setParam('filename', "phpunit");
         $message = $this->_runCall();
         $this->assertHeaderContainsString('PUT', $message);
     }
 
     public function testUploadShouldSendFileToRemote( ) {
-        $this->_cut->setMethod('UPLOAD', TEST_ROOT . "/../bin/socket_echo");
-        $this->_cut->setParam('filename', "socket_echo");
+        $this->_cut->setMethod('UPLOAD', TEST_ROOT . "/phpunit");
+        $this->_cut->setParam('filename', "phpunit");
         $message = $this->_runCall();
-        $this->assertContains("filename=socket_echo", $message);
-        $this->assertContains(file_get_contents(TEST_ROOT . "/../bin/socket_echo"), $message);
+        $this->assertContains("filename=phpunit", $message);
+        $this->assertContains(file_get_contents(TEST_ROOT . "/phpunit"), $message);
     }
 
     public function testPostFileShouldSendFileToRemote( ) {
-        $file = TEST_ROOT . "/../bin/socket_echo";
+        $file = TEST_ROOT . "/phpunit";
         $this->_cut->setMethod('POSTFILE', $file);
         $message = $this->_runCall();
         $this->assertContains(file_get_contents($file), $message);
     }
 
-    public function testPutFileShouldSendFileToRemote( ) {
-        $file = TEST_ROOT . "/../bin/socket_echo";
+    public function testPostFileShouldNotOverwriteHeaders( ) {
+        $this->_cut->setHeader('Header1', 'one');
+        $file = TEST_ROOT . "/phpunit";
+        $this->_cut->setMethod('POSTFILE', $file);
+        $message = $this->_runCall();
+        $this->assertContains("\nHeader1: one\r\n", $message);
+    }
+
+    public function testPutFileShouldSendFileToRemoteAndSetContentLength( ) {
+        $file = TEST_ROOT . "/phpunit";
         $this->_cut->setMethod('PUTFILE', $file);
         $message = $this->_runCall();
         $this->assertContains(file_get_contents($file), $message);
+        $this->assertContains("\nContent-Length: " . strlen(file_get_contents($file)), $message);
     }
 
     public function testSetHeaderShouldSaveHeader( ) {
         $this->_cut->setHeader('Header1', 'one');
         $this->_cut->setHeader('Header2', 'two');
         $this->assertEquals(array('Header1' => 'one', 'Header2' => 'two'), $this->_cut->getHeaders());
+    }
+
+    public function testGetHeaderShouldReturnSavedHeaderElseNull( ) {
+        $this->_cut->setHeader('Header1', 'one');
+        $this->assertEquals('one', $this->_cut->getHeader('Header1'));
+        $this->assertEquals(null, $this->_cut->getHeader('Header2'));
     }
 
     public function testCallShouldSendHeadersToRemote( ) {

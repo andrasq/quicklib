@@ -79,14 +79,26 @@ class Quick_Rest_AppRunner
 
     public function runCall( Quick_Rest_Request $request, Quick_Rest_Response $response ) {
         try {
-            $path = strtoupper($request->getMethod()) . '::' . $request->getPath();
+            // note: method and path must match exactly, they are left case sensitive
+            $path = "{$request->getMethod()}::{$request->getPath()}";
             if (!isset($this->_callbacks[$path]))
                 throw new Quick_Rest_Exception("call not routed to handler: $path");
 
-            $this->_runCallback($this->_callbacks[$path], $request, $response, $app = $this);
+            $callback = $this->_callbacks[$path];
+            if (is_string($callback) && strpos($callback, '::') !== false) {
+                // 5% faster app if we inline this most common use case
+                list($class, $method) = explode('::', $callback);
+                $handler = new $class();
+                if (! $handler instanceof Quick_Rest_Controller)
+                    throw new Quick_Rest_Exception("$class: app callback not a Quick_Rest_Controller");
+                $handler->$method($request, $response, $this);
+                return $response;
+            }
+
+            $this->_runCallback($callback, $request, $response);
             return $response;
         }
-        catch (Exception $e) {
+       catch (Exception $e) {
             // in case of exception route the call to the user error handler, or die
             if (isset($this->_callbacks['ERROR::/exception'])) {
                 try {
@@ -104,22 +116,27 @@ class Quick_Rest_AppRunner
     }
 
 
-    protected function _runCallback( $callback, $request, $response, Quick_Rest_App $app ) {
-        if (is_string($callback)) {
-            if (strpos($callback, '::') !== false) {
-                list($class, $method) = explode('::', $callback);
-                $handler = new $class();
-                if (! $handler instanceof Quick_Rest_Controller)
-                    throw new Quick_Rest_Exception("$class: app callback not a Quick_Rest_Controller");
-                $handler->$method($request, $response, $app);
-            }
-            else {
-                $callback($request, $response, $app);
-            }
+    protected function _runCallback( $callback, $request, $response ) {
+        $app = $this;
+        if (is_string($callback) && strpos($callback, '::') !== false) {
+            // :: notation is used for 'class::method', we instantiate the class
+            list($class, $method) = explode('::', $callback);
+            $handler = new $class();
+            if (! $handler instanceof Quick_Rest_Controller)
+                throw new Quick_Rest_Exception("$class: app callback not a Quick_Rest_Controller");
+            $handler->$method($request, $response, $app);
             return;
         }
-        if (is_array($callback)) {
-            call_user_func($callback, $request, $response, $app);
+        elseif (is_array($callback)) {
+            // array callbacks can be ($obj, 'method') or ("class", 'method')
+            list($object, $method) = $callback;
+            if (is_string($object)) $object = new $object();
+            $object->$method($request, $response, $app);
+            return;
+        }
+        elseif (is_callable($callback)) {
+            // others we call directly, eg function names or anonymous functions
+            $callback($request, $response, $app);
             return;
         }
         throw new Quick_Rest_Exception("unsupported callback " . print_r($callback, true));

@@ -1,0 +1,45 @@
+The Quick Queue.
+
+*----------------------------------------------------------------
+* NOTE: BETA CODE, NOT FINISHED, ONLY PARTIALLY TESTED.
+*----------------------------------------------------------------
+
+The queue arranges for data to be processed by one or more configured jobs.
+The jobs are configured to handle data of a particular jobtype.  The data is
+added to the queue labeled with the job type.
+
+As pub-sub:  the queue routes messages to listeners for processing.  Listeners
+are subscribed to receive messages matching given keys, and each message type
+is published with a distinct routing key.
+
+As job runners:  the queue schedules and runs jobs (queue tasks).  The runners
+are configured to handle specific job types.  The jobs are identified by a
+jobtype tag.  The job runner implementation is configurable, the initial rev
+will support both shell scripts and http calls.
+
+The high-level structure is:
+  * store - holds messages indexed by jobtype
+  * scheduler - selects jobtypes to run next
+  * router - (tbd) finds listeners that need to see the message
+  * runner - forwards messages to listeners, possibly creating listener processes
+  * engine - top-level loop that retrieves, runs and archives messages
+  * archiver - saves processed message bodies for logging/replay
+  * client - access point for inserting messages for processing
+
+Scheduling is done in batches of same-type jobs.  The batch size is
+configurable, all the way down to 1 (ie, non-batched).
+
+Priorities are not supported on each job, but rather as a config setting by
+the jobtype.  The scheduler is responsible for making use of configuration
+settings when choosing which jobtype to run next.  Priorities are weights
+applied during job selection, not an absolute ranking.  A higher priori ty
+increases the chance of being run first, but does not guarantee it.
+
+Deferred execution (ie, inserting jobs now but not running them until later)
+is not directly supported.  Instead, a _future jobtype can be used to hold the
+exec_dt, jobtype and data, and the queue daemon can loop scanning the rows
+and transfer (make eligible to run) any that are ready to be run.
+
+Adding jobtypes to the queue is initially not dynamic, it requires a daemon
+restart.  Unknown jobtypes are skipped but are not deleted, they accumulate.
+The backlog will run when a job is configured to consume them.

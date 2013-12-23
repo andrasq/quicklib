@@ -9,8 +9,8 @@
  * 2013-02-09 - AR.
  */
 
-if (!class_exists('Quick_Autoloader_Engine'))
-    require_once dirname(__FILE__) . '/Autoloader/Engine.php';
+if (!class_exists('Quick_Autoloader_Engine', false))
+    require dirname(__FILE__) . '/Autoloader/Engine.php';
 
 class Quick_Autoloader
 {
@@ -21,9 +21,13 @@ class Quick_Autoloader
         $this->_engine = $engine;
     }
 
-    static public function getInstance( ) {
+    public function getEngine( ) {
+        return $this->_engine;
+    }
+
+    static public function getInstance( $engine = null ) {
         static $instance;
-        return $instance ? $instance : $instance = new Quick_Autoloader();
+        return $instance ? $instance : $instance = new Quick_Autoloader($engine);
     }
 
     // add an explicit classname => sourcefile mapping
@@ -51,7 +55,22 @@ class Quick_Autoloader
     }
 
     public function install( ) {
-        $this->_engine->install();
+        return $this->register();
+    }
+
+    public function register( ) {
+        $this->_engine->register();
+        return $this;
+    }
+
+    public function unregister( ) {
+        $this->_engine->unregister();
+        return $this;
+    }
+
+    public function autoload( $classname ) {
+        if (!class_exists($classname, false) && !interface_exists($classname, false))
+            $this->_engine->autoload($classname);
         return $this;
     }
 }
