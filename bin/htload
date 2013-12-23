@@ -41,7 +41,7 @@ while ($argv && $argv[0][0] === '-') {
         break;
     case '-u':
     case '--url':
-        $_url = $argv = array_shift($argv);
+        $_url = $arg = array_shift($argv);
         break;
 /**
     case '-f':
