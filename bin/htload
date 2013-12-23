@@ -1,0 +1,228 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * htload -- generate tcp/ip load for an http server
+ *
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
+$VERSION = "v0.10";
+
+$_jobs = 1;
+$_width = 1;
+$_count = 1000;
+$_url = "http://localhost/index.html";
+$_file = "";
+$_random = false;
+$_verbose = false;
+
+
+$argv = $_SERVER['argv'];
+$_prog = array_shift($argv);
+while ($argv && $argv[0][0] === '-') {
+    $arg = false;
+    switch ($opt = array_shift($argv)) {
+    case '--':
+        break;
+    case '-j':
+    case '--jobs':
+        $_jobs = $arg = array_shift($argv);
+        break;
+    case '-w':
+    case '--width':
+        echo "-w not supported yet\n";
+        $_width = $arg = array_shift($argv);
+        break;
+    case '-n':
+    case '--count':
+        $_count = $arg = array_shift($argv);
+        break;
+    case '-u':
+    case '--url':
+        $_url = $argv = array_shift($argv);
+        break;
+/**
+    case '-f':
+    case '--file':
+        $_file = $argv = array_shift($argv);
+        break;
+    case '-R':
+    case '--random':
+        $_random = true;
+        break;
+**/
+    case '-v':
+    case '--verbose':
+        $_verbose = true;
+        break;
+    case '-h':
+    case '--help':
+        echo "htload $VERSION -- generate tcp/ip load for an HTTP server\n";
+        echo "usage:  htload [options] [-f url-list|-u url]\n";
+        break;
+    default:
+        echo "$opt: unrecognized option\n";
+        exit(1);
+        break;
+    }
+    if ($arg === null) {
+        echo "$opt: missing argument\n";
+        exit(1);
+    }
+}
+
+// align the workers to start at the same time
+$launch_tm = microtime(true) + 0.25 + ($_jobs / 100);
+
+$ht = new Htload($_width, $_count);
+$ht->parallelize($_jobs, $_count);
+
+while (microtime(true) < $launch_tm)
+    usleep(1000);
+
+$ht->runUrlCurl($_url);
+
+$ht->serialize($_jobs);
+return;
+
+
+class Htload {
+    protected $_width, $_master_pid;
+
+    public function __construct( $width, $count ) {
+        $this->_width = $width;
+        $this->_count = $count;
+        $this->_master_pid = getmypid();
+    }
+
+    // recurse and fork into $count processes
+    public function parallelize( $jobs, $count ) {
+        if ($jobs > 1 && $count > 1) {
+            $p = (int)($jobs/2); $q = $jobs - $p;
+            $c1 = (int)($count/2); $c2 = $count - $c1;
+            if ($pid = pcntl_fork()) {
+                if ($p > 1) $this->parallelize($p, $c1);
+            }
+            else {
+                if ($q > 1) $this->parallelize($q, $c2);
+            }
+            usleep(1);
+        }
+        $this->_count = $count;
+    }
+
+    // wait for $count-1 child processes to exit
+    public function serialize( $count ) {
+        if (getmypid() !== $this->_master_pid) exit(0);
+        for ($i=1; $i<$count; ++$i)
+            pcntl_wait($status);
+    }
+
+    public function runUrlCurl( $url ) {
+        // 11,000 calls/sec but hard to -w widen (and reusing the curl resource; 2k/s if new)
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        $count = $this->_count;
+
+        $tm = microtime(true);
+        for ($i=0; $i<$count; ++$i) {
+            $s = curl_exec($ch);
+        }
+        $tm = microtime(true) - $tm;
+        echo "AR: $this->_count loops in $tm sec, " . ($this->_count/$tm) . "/sec\n";
+    }
+
+    public function runUrl( $url ) {
+        $parts = $this->_parseUrl($url);
+        $host = $parts['host'];
+        $port = $parts['port'];
+        $path = $parts['path'];
+
+        $count = $this->_count;
+        $width = $this->_width;
+        $request = $this->_makeGetRequest($host, $path);
+        $socks = array_fill(0, $width, false);
+
+        $tm = microtime(true);
+if (0) {
+        // 4100 calls/sec per socket; 6000/sec w/ 3 sockets
+        // note: odd behavior, occasionally very very slow (200-400 calls/sec)... out of sockets?
+        while ($count > 0) {
+if ($count % 100 === 0) echo "AR: count = $count\n";
+            $running = array();
+            foreach ($socks as $sock) {
+                if ($sock && !fgets($sock)) {
+                    $running[] = $sock;
+                }
+                elseif (--$count >= 0) {
+                    if (($sock = $this->_openSocket($host, $port)) && fputs($sock, $request))
+                        $running[] = $sock;
+                    else echo "w";
+                }
+            }
+            $socks = $running;
+            usleep(10);
+        }
+        foreach ($socks as $sock) {
+            if ($sock) while (!fgets($sock)) usleep(100);
+        }
+}
+elseif (0) {
+        // 3700 calls/sec
+        for ($i=0; $i<$count; ++$i) {
+            $sock = $this->_openSocket($host, $port);
+            if (!fputs($sock, $request)) echo "w";
+            while (!fread($sock, 10000000)) usleep(50);
+        }
+}
+else {
+        // 14k calls/sec to index.html, 11k to index.php (vs wrk -t1 -c1 t3s: 21k, 16k)
+        // 11,000 calls/sec but hard to -w widen (and reusing the curl resource; 2k/s if new)
+        // 3600 calls/sec to autoload.php (vs wrk 3800/s)
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        for ($i=0; $i<$count; ++$i) {
+            $s = curl_exec($ch);
+        }
+}
+        $tm = microtime(true) - $tm;
+        echo "AR: $this->_count loops in $tm sec, " . ($this->_count/$tm) . "/sec\n";
+        return;
+    }
+
+    public function _openSocket( $host, $port ) {
+        $timeout = 0.05;
+        do {
+            if ($sock = @stream_socket_client("tcp://$host:$port", $errno, $errstr, $timeout)) {
+                stream_set_blocking($sock, false);
+                return $sock;
+            }
+            echo "x";
+        } while (!$sock);
+    }
+
+    public function _makeGetRequest( $host, $path ) {
+        return
+            "GET $path HTTP/1.1\r\n" .
+            "Host: $host\r\n" .
+            "Content-Length: 0\r\n" .
+            "Content-Type: application/x-www-form-urlencoded\r\n" .
+            "\r\n" .
+            "";
+    }
+
+    protected function _parseUrl( $url ) {
+        if (preg_match(';^((http|https)://)?([^/:]+)(:([0-9]+))?(/.*)$;', $url, $mm)) {
+            return array(
+                'scheme' => $mm[2],
+                'host' => $mm[3],
+                'port' => empty($mm[5]) ? 80 : $mm[5],
+                'path' => $mm[6],
+            );
+        }
+        else
+            return false;
+    }
+}

@@ -257,7 +257,7 @@ class Quick_Proc_Process {
     protected function _waitpid( $pid ) {
         if (!function_exists('pcntl_wait') || !$this->_pid)
             return false;
-        if (pcntl_wait($this->_pid, $status, WNOHANG) > 0) {
+        if (pcntl_waitpid($this->_pid, $status, WNOHANG) > 0) {
             $this->_exitcode = pcntl_wexitstatus($status);
             return true;
         }

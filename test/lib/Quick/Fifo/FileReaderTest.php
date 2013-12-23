@@ -79,6 +79,48 @@ class Quick_Fifo_FileReaderTest
         $this->assertEquals("line3\n", $this->_cut->fgets());
     }
 
+    public function testFputsShouldAppendToFifo( ) {
+        $id = uniqid();
+        $this->_cut->fputs("id = $id\n");
+        $this->_cut->open();
+        $this->assertEquals("id = $id\n", $this->_cut->fgets());
+    }
+
+    public function testFputsShouldAppendToFile( ) {
+        $this->_cut->fputs("test123\n");
+        $this->assertEquals("test123\n", file_get_contents($this->_filename));
+    }
+
+    public function testFputsShouldAddMissingNewline( ) {
+        $this->_cut->fputs("test123");
+        $this->assertEquals("test123\n", file_get_contents($this->_filename));
+    }
+
+    public function testWriteShouldAppendToFile( ) {
+        $this->_cut->write("line1\nline2");
+        $this->assertEquals("line1\nline2\n", file_get_contents($this->_filename));
+    }
+
+    public function testClearEofShouldSeeNewlyAddedLines( ) {
+        $this->_cut->fputs("line1");
+        $this->_cut->open();
+        $this->assertEquals("line1\n", $this->_cut->fgets());
+        $this->assertFalse($this->_cut->fgets());
+        $this->_cut->fputs("line2");
+        $this->_cut->clearEof();
+        $this->assertEquals("line2\n", $this->_cut->fgets());
+    }
+
+    public function testClearEofShouldNotSkipLines( ) {
+        $this->_cut->fputs("line1\nline2");
+        $this->_cut->open();
+        $this->assertEquals("line1\n", $this->_cut->fgets());
+        // commit the lines read so far, because clearEof reopens to last checkpointed read point
+        $this->_cut->rsync();
+        $this->_cut->clearEof();
+        $this->assertEquals("line2\n", $this->_cut->fgets());
+    }
+
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
         $timer->calibrate(1, array($this, '_testSpeedNoop'), array($this->_cut));
@@ -107,11 +149,13 @@ class Quick_Fifo_FileReaderTest
         while ($line = $cut->fgets())
             ;
         // 490k lines/sec singly
+        // 750k lines/sec phenom ii 3.6 ghz
     }
 
     public function _testSpeedReadFifo( $cut ) {
         while ($line = $cut->read(50000))
             ;
         // 8.4m lines/sec in 50k batches (7.2 20k) (but 100k is only 5.3, so not too big)
+        // 12.4m lines/sec phenom ii 3.6 ghz
     }
 }

@@ -16,13 +16,13 @@
  */
 
 class Quick_Fifo_FileReader
-    implements Quick_Fifo_Reader
+    implements Quick_Fifo_Reader, Quick_Fifo_Writer
 {
     protected $_logfile, $_datafile, $_infofile, $_pidfile;
     protected $_reader;
     protected $_header;
     protected $_mutex;
-    protected $_openDelay = .015;
+    protected $_openDelay = .012;
     protected $_isOpen = false;
 
     public function __construct( $filename ) {
@@ -51,10 +51,12 @@ class Quick_Fifo_FileReader
         // if the datafile (renamed logfile) already exists, resume reading it
         if (!file_exists($this->_datafile)) {
             $ok = @rename($this->_logfile, $this->_datafile);
-            if (!$ok) $ok = touch($this->_datafile);
+            if ($ok)
+                // wait for traffic to settle, users of the logfile may reuse the file handle for up to .01 sec
+                usleep($this->_openDelay * 1000000);
+            else
+                $ok = touch($this->_datafile);
             if (!$ok) throw new Quick_Fifo_Exception("$this->_logfile: unable to acquire fifo as $this->_datafile");
-            // wait for traffic to settle, users of the logfile may reuse the file handle for up to .01 sec
-            usleep($this->_openDelay * 1000000);
         }
 
         $fp = @fopen($this->_datafile, "r");
@@ -62,7 +64,7 @@ class Quick_Fifo_FileReader
 
         $this->_reader = new Quick_Fifo_PipeReader($fp);
         $this->_loadState();
-        $this;
+        return $this;
     }
 
     public function close( ) {
@@ -81,7 +83,7 @@ class Quick_Fifo_FileReader
     public function clearEof( ) {
         // switch to reading new the logfile that was created while we were busy
         $this->close();
-        $this->open();
+        return $this->open();
     }
 
     public function fgets( ) {
@@ -104,6 +106,25 @@ class Quick_Fifo_FileReader
 
     public function feof( ) {
         return $this->_reader->feof();
+    }
+
+    public function fputs( $line ) {
+        if ($line > '') {
+            $nb = file_put_contents(
+                $this->_logfile,
+                substr($line, -1) === "\n" ? $line : $line . "\n",
+                LOCK_EX
+            );
+            if ($nb < strlen($line)) throw new Quick_Fifo_Exception("$this->_logfile: unable to write to fifo");
+        }
+    }
+
+    public function write( $lines ) {
+        $this->fputs($lines);
+    }
+
+    public function fflush( ) {
+        // nothing required
     }
 
     protected function _loadState( ) {

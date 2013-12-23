@@ -1,7 +1,7 @@
 quicklib
 ========
 
-Quicklib PHP Toolkit, Version 0.13.1
+Quicklib PHP Toolkit, Version 0.14
 
 Copyright (C) 2013 Andras Radics
 Licensed under the Apache License, Version 2.0
@@ -34,8 +34,8 @@ Quick/
 
 In development:
   - fast fifo data streams (partial)
+  - message queue execution (partial)
   - db active records (future)
-  - message queue execution (future)
 
 Manifest:
   lib/Quick/    - the php library

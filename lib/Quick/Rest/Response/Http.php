@@ -11,8 +11,9 @@ class Quick_Rest_Response_Http
     implements Quick_Rest_Response
 {
     protected $_cli = 'http';
+    protected $_httpId = "HTTP/1.1";
     protected $_statusCode = 200, $_statusMessage = "OK", $_headers = array(
-        'Content-Type: text/plain',
+        'Content-Type' => 'Content-Type: text/plain',
     );
     protected $_content = false;
     protected $_contentFile = false;
@@ -23,7 +24,19 @@ class Quick_Rest_Response_Http
         $this->_cli = $yesno ? 'cli' : 'http';
     }
 
+    public function setHttpId( $version ) {
+        $this->_httpId = $version;
+    }
+
+    public function setHttpHeaders( Array $headerStrings ) {
+        $this->_headers = $headerStrings;
+    }
+
     public function setHttpHeader( $name, $value ) {
+        $this->_headers[$name] = "$name: $value";
+    }
+
+    public function appendHttpHeader( $name, $value ) {
         $this->_headers[] = "$name: $value";
     }
 
@@ -142,19 +155,21 @@ class Quick_Rest_Response_Http
                 // for non-standard status codes it sets the http header to 500 Internal Server Error.
                 // NOTE: php replaces an empty message with the standard message for the code,
                 // or with 500 Internal Server Error if not standard
-                header("HTTP/1.x $this->_statusCode $this->_statusMessage");
+                header("$this->_httpId $this->_statusCode $this->_statusMessage");
                 header("Status: $this->_statusCode $this->_statusMessage", true, $this->_statusCode);
             }
+            // faster to emit singly with header()
             foreach ($this->_headers as $hdr)
                 header($hdr);
         }
         else {
             if (isset($this->_statusCode)) {
-                echo "HTTP/1.x $this->_statusCode $this->_statusMessage\n";
-                echo "Status: $this->_statusCode\n";
+                echo "$this->_httpId $this->_statusCode $this->_statusMessage\n" .
+                     "Status: $this->_statusCode\n";
             }
-            foreach ($this->_headers as $hdr) echo "$hdr\n";
-            echo "\n";
+            // for cli, faster to emit all at once
+            echo implode("\n", $this->_headers) . "\n" .
+                 "\n";
         }
     }
 

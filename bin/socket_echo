@@ -9,17 +9,27 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-$_port = 12435;
-$_timeout = 10;
+$_port = 12345;
+$_timeout = 60;  // if unit test crashed, quit after 1 minute of inactivity
 
 if (isset($argv[1])) $_port = $argv[1];
 
 $sock = opensock($_port);
+if (!$sock) {
+    echo "unable to listen on socket $_port\n";
+    exit(1);
+}
+
+// fork for throughput:
+//pcntl_fork();
+//pcntl_fork();
+//pcntl_fork();
+//pcntl_fork();
 
 while (true) {
     $stream = acceptconn($sock, $_timeout);
     // wait for sender to notice the accept and send input; .001 is too short for php curl
-    $lines = readlines($stream, .0025);
+    $lines = readlines($stream, $_timeout, .0001);
 
     /*
      * php curl uploads files with a second request on the same link, sending
@@ -28,7 +38,7 @@ while (true) {
      */
     if (strpos($lines, "\nExpect: 100-continue") !== false) {
         fputs($stream, "HTTP/1.1 100 Continue\r\n\r\n");
-        $lines .= readlines($stream, .05);
+        $lines .= readlines($stream, $_timeout, .05);
     }
 
     // force a newline to flush the output to the unit test reader
@@ -57,15 +67,15 @@ function acceptconn( $sock, $_timeout ) {
     return $stream;
 }
 
-// read all pending input and wait $timeout sec for more to arrive
-function readlines( $stream, $timeout ) {
+// wait $timeout sec for input, read it wait $lingertime for more to arrive
+function readlines( $stream, $timeout, $lingertime ) {
     stream_set_blocking($stream, false);
     $until = microtime(true) + $timeout;
     $lines = "";
     do {
         $line = fgets($stream);
-        if ($line > '') $until = microtime(true) + $timeout;
-        if (!$line) usleep(1000);
+        if ($line > '') $until = microtime(true) + $lingertime;
+        else usleep(10);
         $lines .= $line;
     } while ($line > '' || microtime(true) < $until);
     return $lines;

@@ -37,8 +37,13 @@ class Quick_Rest_Call_Http
     }
 
     public function setHeader( $name, $value ) {
-        $this->_headers[$name] = $value;
+        $this->_headers[$name] = "$name: $value";
         return $this;
+    }
+
+    public function getHeader( $name ) {
+        if (!isset($this->_headers[$name])) return null;
+        return substr($this->_headers[$name], strpos($this->_headers[$name], ": ")+2);
     }
 
     public function setParam( $name, $value ) {
@@ -125,6 +130,9 @@ class Quick_Rest_Call_Http
         ));
         if ($this->_config) curl_setopt_array($ch, $this->_config);
 
+        // each set of CURLOPT_HTTPHEADERS unsets the previous, so send all headers together
+        $headers = $this->_headers;
+
         switch ($method) {
         case 'GET':
             curl_setopt($ch, CURLOPT_HTTPGET, true);
@@ -143,7 +151,7 @@ class Quick_Rest_Call_Http
             curl_setopt($ch, CURLOPT_INFILE, $fp = @fopen($this->_methodArg, "r"));
             if (!$fp) throw new Quick_Rest_Exception("$this->_methodArg: unable to read file");
             curl_setopt($ch, CURLOPT_INFILESIZE, filesize($this->_methodArg));
-            curl_setopt($ch, CURLOPT_HTTPHEADER, array('Content-Length: ' . filesize($this->_methodArg)));
+            $headers[] = "Content-Length: " . filesize($this->_methodArg);
             break;
         case 'PUT':
         case 'POST':
@@ -166,9 +174,7 @@ class Quick_Rest_Call_Http
             break;
         }
 
-        foreach ($this->_headers as $name => $value)
-            $headers[] = "$name: $value";
-        if (isset($headers)) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+        if ($headers) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
         $reply = $this->_curlExec($ch, 10);
 

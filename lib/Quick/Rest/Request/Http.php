@@ -10,14 +10,14 @@
 class Quick_Rest_Request_Http
     implements Quick_Rest_Request
 {
-    protected $_protocol = 'HTTP/1.0', $_method = 'GET', $_path, $_query;
+    protected $_protocol, $_method = 'GET', $_path, $_query;
     protected $_params = array(), $_server, $_rawPostData, $_files;
 
     public function setParamsFromGlobals( & $globals ) {
         // extract http protocol, method and uri path from the globals
         // note: cookies, templated pathname vars not addressed here
         $server = & $globals['_SERVER'];
-        if (isset($server['SERVER_PROTOCOL'])) $this->_protocol = $server['SERVER_PROTOCOL'];
+        //if (isset($server['SERVER_PROTOCOL'])) $this->_protocol = $server['SERVER_PROTOCOL'];
         if (isset($server['REQUEST_METHOD'])) $this->_method = $server['REQUEST_METHOD'];
 
         $this->_server = $server;
@@ -25,8 +25,6 @@ class Quick_Rest_Request_Http
             $this->_rawPostData = $globals['HTTP_RAW_POST_DATA'];
 
         if (isset($globals['_FILES'])) $this->_files = $globals['_FILES'];
-
-        $this->_path = $this->_query = null;
 
         $this->_params = $globals['_GET'] + $globals['_POST'];
         return $this;
