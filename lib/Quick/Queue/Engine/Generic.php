@@ -129,6 +129,7 @@ class Quick_Queue_Engine_Generic
     }
 
     protected function _processResults( $jobtype, Array & $jobresults ) {
+        $succeeded = $unrun = $failed = array();
         foreach ($jobresults as $key => $result) {
             if (!is_array($result))
                 throw new Quick_Queue_Exception("invalid task result, not an array:\n" . var_export($result, true));
@@ -141,7 +142,6 @@ class Quick_Queue_Engine_Generic
             All task keys must be present to know which tasks were candidates for running.
             **/
 
-            $succeeded = $unrun = $failed = array();
             if (!isset($result['status'])) $succeeded[] = $key;
             else switch($result['status']) {
             case Quick_Queue_Runner::RUN_OK:

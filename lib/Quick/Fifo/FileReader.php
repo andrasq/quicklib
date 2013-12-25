@@ -30,9 +30,6 @@ class Quick_Fifo_FileReader
         $this->_datafile = "$filename.(data)";          // renamed data file read by us
         $this->_infofile = "$filename.(info)";          // fifo header storing current read offset
         $this->_pidfile = "$filename.(pid)";            // fifo consumer exclusive access pid (for header update)
-
-        $this->_header = new Quick_Fifo_Header($this->_infofile);
-        $this->_mutex = new Quick_Proc_Pidfile($this->_pidfile);
     }
 
     public function __destruct( ) {
@@ -43,23 +40,34 @@ class Quick_Fifo_FileReader
 
     public function open( ) {
         // only one consumer at a time, mutex implemented with a pidfile
-        try { $ok = $this->_mutex->acquire(); }
-        catch (Exception $e) { throw new Quick_Fifo_Exception($e->getMessage()); }
+        $this->_mutex = new Quick_Proc_Pidfile($this->_pidfile);
+        $this->_mutex->acquire();
         $this->_isOpen = true;
 
-        // grab the logfile, let a new one be created in its place
         // if the datafile (renamed logfile) already exists, resume reading it
+        // else grab (rename) the logfile, let a new one be created in its place
+        // nb: if there is no data, use /dev/nul as the data and header files, to not clutter the directory
         if (!file_exists($this->_datafile)) {
             $ok = @rename($this->_logfile, $this->_datafile);
-            if ($ok)
+            if ($ok) {
                 // wait for traffic to settle, users of the logfile may reuse the file handle for up to .01 sec
                 usleep($this->_openDelay * 1000000);
-            else
-                $ok = touch($this->_datafile);
+                $fp = @fopen($this->_datafile, "r");
+                $this->_header = new Quick_Fifo_Header($this->_infofile);
+            }
+            else {
+                //$ok = touch($this->_datafile);
+                $fp = @fopen("/dev/null", "r");
+                $ok = (bool)$fp;
+                $this->_header = new Quick_Fifo_Header("/dev/null");
+            }
             if (!$ok) throw new Quick_Fifo_Exception("$this->_logfile: unable to acquire fifo as $this->_datafile");
         }
+        else {
+            $fp = @fopen($this->_datafile, "r");
+            $this->_header = new Quick_Fifo_Header($this->_infofile);
+        }
 
-        $fp = @fopen($this->_datafile, "r");
         if (!$fp) throw new Quick_Fifo_Exception("$this->_datafile: unable to open for reading");
 
         $this->_reader = new Quick_Fifo_PipeReader($fp);
@@ -113,7 +121,7 @@ class Quick_Fifo_FileReader
             $nb = file_put_contents(
                 $this->_logfile,
                 substr($line, -1) === "\n" ? $line : $line . "\n",
-                LOCK_EX
+                LOCK_EX | FILE_APPEND
             );
             if ($nb < strlen($line)) throw new Quick_Fifo_Exception("$this->_logfile: unable to write to fifo");
         }

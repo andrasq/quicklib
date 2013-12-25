@@ -42,7 +42,6 @@ class Quick_Queue_Config {
         $ret = array();
         foreach ($bundles as $name => $bundle) {
             if (isset($bundle[$field])) $ret[$name] = $bundle[$field];
-            elseif (isset($default)) $ret[$name] = $default;
         }
         return $ret;
     }

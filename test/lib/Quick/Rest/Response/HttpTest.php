@@ -30,6 +30,23 @@ class Quick_Rest_Response_HttpTest
         $this->assertContains($u, $this->_cut->getResponse());
     }
 
+    public function testAppendContentShouldBeOutput( ) {
+        $u = uniqid();
+        $this->_cut->appendContent($u);
+        $this->assertContains($u, $this->_cut->getResponse());
+    }
+
+    public function testAppendContentShouldBeOutputAppended( ) {
+        $u1 = uniqid();
+        $u2 = uniqid();
+        $this->_cut->setContent($u1);
+        $this->_cut->appendContent($u2);
+        $output = $this->_cut->getResponse();
+        $this->assertContains($u1, $output);
+        $this->assertContains($u2, $output);
+        $this->assertGreaterThan(strpos($output, $u1), strpos($output, $u2));
+    }
+
     public function testGetResponseShouldReturnEmittedOutput( ) {
         $this->_cut->setValue('a', 1);
         $this->_cut->setContent("test");

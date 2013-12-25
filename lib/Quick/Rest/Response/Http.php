@@ -66,6 +66,10 @@ class Quick_Rest_Response_Http
         $this->_content = $str;
     }
 
+    public function appendContent( $str ) {
+        $this->_content .= $str;
+    }
+
     public function setContentFile( $filename ) {
         $this->_contentFile = $filename;
     }

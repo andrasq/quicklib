@@ -32,7 +32,8 @@ class Quick_Fifo_FileReaderTest
     }
 
     /**
-     * @expectedException       Quick_Fifo_Exception
+     * @expectedException       Exception
+     * // actually throws Quick_Proc_Exception from the mutex
      */
     public function testOpenOfLockedFifoShouldThrowException( ) {
         file_put_contents($this->_pidfile, "1\n");
@@ -133,6 +134,7 @@ class Quick_Fifo_FileReaderTest
         echo $timer->timeit(1, "fgets 100k 200B lines from fifo", array($this, '_testSpeedFgetsFifo'), array($cut));
         $this->assertTrue($cut->feof());
         $this->assertEquals(filesize($this->_datafile), $cut->ftell());
+        // 750k/s
 
         file_put_contents($this->_filename, str_repeat($str, 100000));
         $cut = new Quick_Fifo_FileReader($this->_filename);
@@ -140,6 +142,18 @@ class Quick_Fifo_FileReaderTest
         echo $timer->timeit(1, "read 100k 200B lines from fifo, 50kB/", array($this, '_testSpeedReadFifo'), array($cut));
         $this->assertTrue($cut->feof());
         $this->assertEquals(filesize($this->_datafile), $cut->ftell());
+        // 9000k/s
+
+        echo $timer->timeit(1, "write 100k 200B lines to fifo", array($this, '_testSpeedFputsFifo'), array($cut));
+        // 125k/s using file_put_contents(LOCK_EX|FILE_APPEND)
+
+        $lines = array(
+            $str, $str, $str, $str, $str, $str, $str, $str, $str, $str,
+            //$str, $str, $str, $str, $str, $str, $str, $str, $str, $str,
+        );
+        echo $timer->timeit(1, "write 100k 200B lines to fifo", array($this, '_testSpeedWriteFifo'), array($cut, $lines));
+        // 100k/s in batches of 1 or 4, 725k/s in batches of 10 (380k/s in batches of 20, 390k/s in batches of 50)
+        // ... but on subsequent tests only 300k in batches of 10??  then 660k/s??
     }
 
     public function _testSpeedNoop( $cut ) {
@@ -157,5 +171,17 @@ class Quick_Fifo_FileReaderTest
             ;
         // 8.4m lines/sec in 50k batches (7.2 20k) (but 100k is only 5.3, so not too big)
         // 12.4m lines/sec phenom ii 3.6 ghz
+    }
+
+    public function _testSpeedFputsFifo( $cut ) {
+        for ($i=0; $i<100000; ++$i) {
+            $cut->fputs("$i\n");
+        }
+    }
+
+    public function _testSpeedWriteFifo( $cut, & $lines ) {
+        for ($i=0; $i<10000; ++$i) {
+            $cut->write(implode("\n", $lines) . "\n");
+        }
     }
 }

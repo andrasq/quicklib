@@ -112,8 +112,9 @@ class Quick_Queue_Scheduler_Random
 
     protected function _refreshJobtypes( ) {
         $tm = microtime(true);
-        $this->_jobtypes = $this->_store->getJobtypes();
-        $tm = ($now = microtime(true)) - $tm;
+        // make jobtypes numerically indexed [0..N-1] for random selection
+        $this->_jobtypes = array_values($this->_store->getJobtypes());
+        $tm = microtime(true) - $tm;
         // adjust the refresh interval for very many or very few jobtypes
         $this->_joblistRefreshInterval = $this->_joblistRefreshValue->adjust($tm >= $this->_joblistRefreshInterval);
     }

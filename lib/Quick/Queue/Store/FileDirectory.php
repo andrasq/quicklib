@@ -114,11 +114,11 @@ class Quick_Queue_Store_FileDirectory
         $this->_jobCount -= count($keys);
         foreach ($keys as $key) {
             unset($this->_pendingJobs[$jobtype][$key]);
-            if (empty($this->_pendingJobs[$jobtype])) {
-                $this->_checkpointFifo($this->_fifos[$jobtype]);
-                unset($this->_pendingJobs[$jobtype]);
-                unset($this->_pendingFifos[$jobtype]);
-            }
+        }
+        if (empty($this->_pendingJobs[$jobtype])) {
+            if (isset($this->_fifos[$jobtype])) $this->_checkpointFifo($this->_fifos[$jobtype]);
+            unset($this->_pendingJobs[$jobtype]);
+            unset($this->_pendingFifos[$jobtype]);
         }
     }
 
@@ -136,12 +136,18 @@ class Quick_Queue_Store_FileDirectory
     }
 
     protected function & _omitFifoMetafiles( & $names ) {
-        clearstatcache();
         $types = array();
-        foreach ($names as $name)
-            if (substr($name, -1) !== ')') $types[] = $name;
-            elseif (substr($name, -7) === ".(data)" && filesize($this->_store->getFilename($name)) > 0)
-                $types[] = substr($name, 0, -7);
+        foreach ($names as $name) {
+            $len = strlen($name);
+            if ($name[$len-1] === ')') {
+                if (substr($name, -7) === '.(data)') {
+                    $type = substr($name, 0, -7);
+                    $types[$type] = $type;
+                }
+            }
+            else
+                $types[$name] = $name;
+        }
         return $types;
     }
 }

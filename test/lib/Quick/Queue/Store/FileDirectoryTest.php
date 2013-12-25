@@ -81,7 +81,7 @@ class Quick_Queue_Store_FileDirectoryTest
     }
 
     public function testDeleteJobsShouldReturnThis( ) {
-        $this->assertEquals($this->_cut, $this->_cut->DeleteJobs("type", array()));
+        $this->assertEquals($this->_cut, $this->_cut->deleteJobs("type", array()));
     }
 
     public function testRetryJobsShouldReturnThis( ) {

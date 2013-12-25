@@ -21,6 +21,10 @@ class Quick_Proc_Pidfile
 	$this->_pidfile = $pidfile;
     }
 
+    public function __destruct( ) {
+        $this->release();
+    }
+
     public function acquire( $pid = null ) {
         if ($pid === null) $pid = getmypid();
 
