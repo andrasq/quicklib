@@ -26,7 +26,7 @@ class Quick_Queue_Runner_Shell
         $this->_queueConfig->set($type, $name, $value);
     }
 
-    public function runJobs( $jobtype, Array $datasets ) {
+    public function runBatch( $jobtype, Array & $datasets ) {
         $inputFile = new Quick_Test_Tempfile("/tmp", "qq-job-");
         $outputFile = new Quick_Test_Tempfile("/tmp", "qq-ret-");
         $proc = $this->_getProcForJobtype($jobtype, $inputFile, $outputFile);
@@ -36,6 +36,7 @@ class Quick_Queue_Runner_Shell
         $proc->inputFile = $inputFile;
         $proc->outputFile = $outputFile;
         $proc->batchKeys = array_keys($datasets);
+        $proc->startTm = microtime(true);
 
         if (substr(end($datasets), -1) !== "\n")
             // synthetic data may not be newline-terminated, do so now
@@ -57,58 +58,64 @@ class Quick_Queue_Runner_Shell
         return array_keys($this->_doneProcs);
     }
 
-    public function & getDoneJobs( $jobtype ) {
+    // return one batch of done jobs
+    public function & getDoneBatch( $jobtype ) {
         if (empty($this->_doneProcs[$jobtype]))
             return array();
 
-        $ret = array();
-        foreach ($this->_doneProcs[$jobtype] as $proc) {
-            $batchResults = array();
-            foreach (file($proc->outputFile) as $line) {
-                // recover the json bundle from the results, this also validates the json formatting
-                if (is_array($batchResults[] = json_decode($line, true))) {
-                    // we expected a json array, and we got one
-                    ;
+        $proc = array_pop($this->_doneProcs[$jobtype]);
+        $batchResults = array();
+        $pid = $proc->getPid();
+        $runtime = sprintf("%.6f", (microtime(true) - $proc->startTm) / count($proc->batchKeys));
+
+        foreach (file($proc->outputFile) as $line) {
+            // recover the json bundle from the results, this also validates the json formatting
+            if (is_array($json = json_decode($line, true))) {
+                // we expected a json array, and we got one
+                $json['pid'] = $pid;
+                $json['runtime'] = $runtime;
+                $batchResults[] = $json;
+            }
+            else {
+                // not a json array, figure out what happened
+                if (is_numeric(trim($line))) {
+                    // test data is often integers, handy to treat numeric responses as valid
+                    $batchResults[] = array('status' => 0, 'response' => trim($line), 'pid' => $pid, 'runtime' => $runtime);
                 }
+                /**
+                elseif (($x = end($batchResults)) || isset($x)) {
+                    // response was a valid json value, but not an array, assume test data again
+                    $batchResults[] = array('status' => 0, 'response' => $val, 'pid' => $pid, 'runtime' => $runtime);
+                }
+                **/
                 else {
-                    // not a json array, figure out what happened
-                    $val = array_pop($batchResults);
-                    if (is_numeric(trim($line))) {
-                        // test data is often integers, handy to treat numeric responses as valid
-                        $batchResults[] = array('status' => 0, 'response' => trim($line), 'proc' => $proc->getPid());
-                    }
-                    /**
-                    elseif (($x = end($batchResults)) || isset($x)) {
-                        // response was a valid json value, but not an array, assume test data again
-                        $batchResults[] = array('status' => 0, 'response' => $val, 'proc' => $proc->getPid());
-                    }
-                    **/
-                    else {
-                        // ERROR: invalid json in results... job died with fatal error?
-                        // @FIXME: should capture the entire invalid message!
-                        //         gather up all following lines and concatenate them into this response
-                        $batchResults[] = array(
-                            'status' => Quick_Queue_Runner::RUN_ERROR,
-                            'message' => 'invalid response',
-                            'response' => $line,
-                        );
-                        break;
-                    }
+                    // ERROR: invalid json in results... job died with fatal error?
+                    // @FIXME: should capture the entire invalid message!
+                    //         gather up all following lines and concatenate them into this response
+                    $batchResults[] = array(
+                        'status' => Quick_Queue_Runner::RUN_ERROR,
+                        'message' => 'invalid response',
+                        'response' => $line,
+                        'pid' => $pid,
+                        'runtime' => $runtime,
+                    );
+                    break;
                 }
             }
-            // all missing values are from jobs presumably not run, mark them as such
-            $n = count($proc->batchKeys) - count($batchResults);
-            for ($i=0; $i<$n; ++$i) {
-                $batchResults[] = array(
-                    'status' => Quick_Queue_Runner::RUN_UNRUN,
-                    'message' => 'unrun',
-                );
-            }
-            $ret += array_combine($proc->batchKeys, $batchResults);
+        }
+        // all missing values are from jobs presumably not run, mark them as such
+        $n = count($proc->batchKeys) - count($batchResults);
+        for ($i=0; $i<$n; ++$i) {
+            $batchResults[] = array(
+                'status' => Quick_Queue_Runner::RUN_UNRUN,
+                'message' => 'unrun',
+            );
         }
 
-        unset($this->_doneProcs[$jobtype]);
-        return $ret;
+        if (!$this->_doneProcs[$jobtype]) unset($this->_doneProcs[$jobtype]);
+
+        $results = array_combine($proc->batchKeys, $batchResults);
+        return $results;
     }
 
 

@@ -8,7 +8,7 @@
 class Quick_Queue_Scheduler_RandomExposer
     extends Quick_Queue_Scheduler_Random
 {
-    public $_runningcounts = array();
+    public $_batchcounts = array();
     public $_config, $_queueConfig;
     public $_joblistRefreshInterval;
 
@@ -28,6 +28,11 @@ class Quick_Queue_Scheduler_RandomTest
         $this->_cut = new Quick_Queue_Scheduler_RandomExposer($this->_store, $this->_queueConfig);
     }
 
+    public function testConstructorShouldProvidingMissingDefaults( ) {
+        $this->assertContains("__default", array_keys($this->_cut->getConfig('batchsize')));
+        $this->assertContains("__default", array_keys($this->_cut->getConfig('batchlimit')));
+    }
+
     public function testConfigureBatchSizeShouldChangeNumberInBatch( ) {
         $this->_cut->configure(Quick_Queue_Scheduler::SCHED_BATCHSIZE, '__default', 2);
         $jobtype = 'a';
@@ -37,8 +42,9 @@ class Quick_Queue_Scheduler_RandomTest
 
     public function testGetConfigShouldReturnConfiguration( ) {
         $this->_cut->configure(Quick_Queue_Scheduler::SCHED_BATCHSIZE, 'foo', 123);
-        $this->assertEquals(array('foo' => 123), $this->_cut->getConfig(Quick_Queue_Scheduler::SCHED_BATCHSIZE));
-        $this->assertEquals(array('batchsize' => array('foo' => 123)), $this->_cut->getConfig());
+        $batchsizes = $this->_cut->getConfig(Quick_Queue_Scheduler::SCHED_BATCHSIZE);
+        unset($batchsizes['__default']);
+        $this->assertEquals(array('foo' => 123), $batchsizes);
     }
 
     public function testSetConfigShouldSetConfiguration( ) {
@@ -66,11 +72,11 @@ class Quick_Queue_Scheduler_RandomTest
     public function testGetBatchShouldTrackRunningJobsCountByJobtype( ) {
         $jobtype = 'a';
         $jobs = $this->_cut->getBatchToRun($jobtype);
-        $this->assertEquals(1, $this->_cut->_runningcounts[$jobtype]);
+        $this->assertEquals(1, $this->_cut->_batchcounts[$jobtype]);
         $this->_cut->setBatchDone($jobtype, $jobs);
-        $this->assertTrue(empty($this->_cut->_runningcounts[$jobtype]));
+        $this->assertTrue(empty($this->_cut->_batchcounts[$jobtype]));
         $jobs2 = $this->_cut->getBatchToRun($jobtype);
-        $this->assertEquals(1, $this->_cut->_runningcounts[$jobtype]);
+        $this->assertEquals(1, $this->_cut->_batchcounts[$jobtype]);
     }
 
     public function testSetBatchDoneShouldClearJobsFromRunning( ) {

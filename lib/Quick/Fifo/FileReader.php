@@ -108,8 +108,8 @@ class Quick_Fifo_FileReader
         return $this->_reader->ftell();
     }
 
-    public function rsync( ) {
-        $this->_saveState();
+    public function rsync( $offset = null ) {
+        $this->_saveState($offset);
     }
 
     public function feof( ) {
@@ -140,7 +140,8 @@ class Quick_Fifo_FileReader
         $this->_reader->fseek($this->_header->getState('HEAD'), SEEK_SET);
     }
 
-    protected function _saveState( ) {
-        $this->_header->saveState(array('HEAD' => $this->_reader->ftell()));
+    protected function _saveState( $offset = null ) {
+        if ($offset === null) $offset = $this->_reader->ftell();
+        $this->_header->saveState(array('HEAD' => $offset));
     }
 }

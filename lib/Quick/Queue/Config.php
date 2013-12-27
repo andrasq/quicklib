@@ -9,7 +9,8 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-class Quick_Queue_Config {
+class Quick_Queue_Config
+{
     protected $_config = array();
 
     public function __construct( Array & $config = null ) {

@@ -13,7 +13,7 @@ interface Quick_Queue_Runner
     const RUN_UNRUN = -1;       // not run, schedule again
 
     public function configure($what, $jobtype, $value);
-    public function runJobs($jobtype, Array $datasets);
+    public function runBatch($jobtype, Array & $datasets);
     public function getDoneJobtypes();
-    public function & getDoneJobs($jobtype);
+    public function & getDoneBatch($jobtype);
 }

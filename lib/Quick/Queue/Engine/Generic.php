@@ -60,12 +60,15 @@ class Quick_Queue_Engine_Generic
             }
         }
 
-        // wait for still running tasks
-        $this->_retireRunningJobs();
-
         $this->_totalTime += (microtime(true) - $startTime);
     }
 
+    public function finish( ) {
+        // wait for still running tasks
+        $startTime = microtime(true);
+        $this->_retireRunningJobs();
+        $this->_totalTime += (microtime(true) - $startTime);
+    }
 
     protected function _shouldContinueToRun( ) {
         return (
@@ -87,7 +90,7 @@ class Quick_Queue_Engine_Generic
         if (! $jobtypes = $this->_runner->getDoneJobtypes())
             return false;
         foreach ($jobtypes as $jobtype) {
-            $jobresults = $this->_runner->getDoneJobs($jobtype);
+            $jobresults = $this->_runner->getDoneBatch($jobtype);
             $this->_scheduler->setBatchDone($jobtype, $jobresults);
             $this->_processResults($jobtype, $jobresults);
             if ($this->_archiver)
@@ -110,7 +113,7 @@ class Quick_Queue_Engine_Generic
     protected function _launchNewJobs( $limit ) {
         $jobtype = $this->_scheduler->getJobtypeToRun();
         if ($jobtype && ($jobs = $this->_scheduler->getBatchToRun($jobtype, $limit))) {
-            if ($this->_runner->runJobs($jobtype, $jobs)) {
+            if ($this->_runner->runBatch($jobtype, $jobs)) {
                 // jobs started, count them and keep a copy for archival
                 $n = count($jobs);
                 $this->_totalCount += $n;

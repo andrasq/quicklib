@@ -122,6 +122,23 @@ class Quick_Fifo_FileReaderTest
         $this->assertEquals("line2\n", $this->_cut->fgets());
     }
 
+    public function testFtellShouldReturnReadOffset( ) {
+        $this->_cut->fputs("line 1\nline 2\n");
+        $this->_cut->open();
+        $this->assertEquals(0, $this->_cut->ftell());
+        $line = $this->_cut->fgets();
+        $this->assertEquals(strlen($line), $this->_cut->ftell());
+    }
+
+    public function testRsyncShouldSaveOffsetParameter( ) {
+        $this->_cut->fputs("line 1\nline 2\n");
+        $this->_cut->open();
+        $this->_cut->rsync(4);
+        $this->_cut->close();
+        $this->_cut->open();
+        $this->assertEquals(" 1\n", $this->_cut->fgets());
+    }
+
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
         $timer->calibrate(1, array($this, '_testSpeedNoop'), array($this->_cut));

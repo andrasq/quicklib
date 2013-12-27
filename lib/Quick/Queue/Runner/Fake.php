@@ -15,14 +15,14 @@ class Quick_Queue_Runner_Fake
 
     public function __construct( Quick_Queue_Config $queueConfig ) {
         $this->_queueConfig = $queueConfig;
-        $this->_config = $queueConfig->shareConfig();
+        $this->_config = & $queueConfig->shareConfig();
     }
 
     public function configure( $type, $name, $value ) {
         $this->_queueConfig->set($type, $name, $value);
     }
 
-    public function runJobs( $jobtype, Array $datasets ) {
+    public function runBatch( $jobtype, Array $datasets ) {
         // jobs are immediately done!
         if (isset($this->_jobs[$jobtype])) $this->_jobs[$jobtype] += $datasets;
         else $this->_jobs[$jobtype] = $datasets;
@@ -33,7 +33,7 @@ class Quick_Queue_Runner_Fake
         return array_keys($this->_jobs);
     }
 
-    public function & getDoneJobs( $jobtype ) {
+    public function & getDoneBatch( $jobtype ) {
         $ret = array();
         foreach ($this->_jobs[$jobtype] as $key => $input) {
             // for each done job, fake a result

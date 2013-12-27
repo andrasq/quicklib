@@ -41,9 +41,11 @@ class Quick_Queue_Store_ArrayTest
         $this->_cut->addJobs('a', array(1,2,3,4,5));
         $jobs = $this->_cut->getJobs('a', 3);
         $jobs += $this->_cut->getJobs('a', 1);
-        $this->assertEquals($jobs, $this->_cut->_pendingJobs['a']);
+        $this->assertEquals($jobs, $this->_cut->getPendingJobs('a'));
         $this->_cut->deleteJobs('a', array_keys($jobs));
-        $this->assertTrue(empty($this->_cut->_pendingJobs['a']));
+        // note: empty() param is in write context? (takes an lvalue??)
+        // $this->assertTrue(empty($this->_cut->getPendingJobs('a')));
+        $this->assertFalse((bool)$this->_cut->getPendingJobs('a'));
     }
 
     public function testUngetJobsShouldRequeueJobs( ) {

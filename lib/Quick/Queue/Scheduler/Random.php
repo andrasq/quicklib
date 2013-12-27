@@ -14,7 +14,7 @@ class Quick_Queue_Scheduler_Random
 {
     protected $_store;
     protected $_jobtypes = array();
-    protected $_runningcounts = array();
+    protected $_batchcounts = array();
     protected $_config = array(
         // __default is used for unspecified types
         'batchsize' => array(),
@@ -27,11 +27,13 @@ class Quick_Queue_Scheduler_Random
         $this->_queueConfig = $queueConfig;
         $this->_config = & $queueConfig->shareConfig();
         $knownConfigs = array(
-            'batchsize',
-            'weight',
+            'batchsize' => 1,
+            'batchlimit' => 1,
+            'weight' => 1,
         );
-        foreach ($knownConfigs as $name) {
-            if (empty($this->_configs[$name])) $this->_configs[$name] = array();
+        foreach ($knownConfigs as $name => $default) {
+            if ($queueConfig->get($name, '__default') === null)
+                $queueConfig->set($name, '__default', $default);
         }
         //$this->setJoblistRefreshValue(new Quick_Data_AdaptiveValue_SlidingWindow(.004, .001, 10.000, -.01, 2));
         $this->setJoblistRefreshValue(new Quick_Data_AdaptiveValue_Constant(.05));
@@ -69,7 +71,7 @@ class Quick_Queue_Scheduler_Random
     }
 
     public function getJobtypeToRun( ) {
-        // refreshing the list of jobtypes is a slow operation, only do it occasionally
+        // refreshing the list of jobtypes is a slow operation, so reuse the list if possible
         if (($now = microtime(true)) >= $this->_nextJoblistRefreshTime) {
             $this->_refreshJobtypes();
             $this->_nextJoblistRefreshTime = microtime(true) + $this->_joblistRefreshInterval;
@@ -77,36 +79,39 @@ class Quick_Queue_Scheduler_Random
 
         if ($this->_jobtypes) {
             $max = count($this->_jobtypes) - 1;
-            for ($i=0; $i<3; ++$i) {
+            for ($i=0; $i<5; ++$i) {
                 $jobtype = $this->_jobtypes[mt_rand(0, $max)];
-                if (empty($this->_runningcounts[$jobtype])) {
-                    // @FIXME: keep things simple, only allow one batch of a type at a time
-                    // do not start a second batch while the first is still running
-                    // this allows the task store to advance the checkpoint when the tasks finish
-                    // NOTE: this cuts into performance by 20% or so
+                if (empty($this->_batchcounts[$jobtype]) ||
+                    $this->_batchcounts[$jobtype] < $this->_queueConfig->get('batchlimit', $jobtype))
+                {
                     return $jobtype;
                 }
+                // running multiple concurrent batches bumps throughput (batchlimit=4):
+                // batchsize=1: from 300 to 900/sec
+                // batchsize=5: from 1500 to 4100/sec
+                // batchsize=20: from 5400 to 12500/sec
             }
         }
         return false;
     }
 
     public function & getBatchToRun( $jobtype, $limit = null ) {
-        $batchsize = $this->_getConfiguredBatchsize($jobtype);
+        if ($limit === null) $limit = $this->_queueConfig->get('batchsize', $jobtype);
+        $batchsize = $this->_queueConfig->get('batchsize', $jobtype);
         $limit = isset($limit) ? min($limit, $batchsize) : $batchsize;
         $jobs = $this->_store->getJobs($jobtype, $limit);
-        if (isset($this->_runningcounts[$jobtype]))
-            $this->_runningcounts[$jobtype] += count($jobs);
+        if (isset($this->_batchcounts[$jobtype]))
+            $this->_batchcounts[$jobtype] += 1;
         else
-            $this->_runningcounts[$jobtype] = count($jobs);
+            $this->_batchcounts[$jobtype] = 1;
         return $jobs;
     }
 
     public function setBatchDone( $jobtype, Array & $jobs ) {
-        if (isset($this->_runningcounts[$jobtype])) {
-            $this->_runningcounts[$jobtype] -= count($jobs);
-            if ($this->_runningcounts[$jobtype] <= 0)
-                unset($this->_runningcounts[$jobtype]);
+        if (isset($this->_batchcounts[$jobtype])) {
+            $this->_batchcounts[$jobtype] -= 1;
+            if ($this->_batchcounts[$jobtype] <= 0)
+                unset($this->_batchcounts[$jobtype]);
         }
     }
 
@@ -117,14 +122,5 @@ class Quick_Queue_Scheduler_Random
         $tm = microtime(true) - $tm;
         // adjust the refresh interval for very many or very few jobtypes
         $this->_joblistRefreshInterval = $this->_joblistRefreshValue->adjust($tm >= $this->_joblistRefreshInterval);
-    }
-
-    protected function _getConfiguredBatchsize( $jobtype ) {
-        if (isset($this->_config['batchsize'][$jobtype]))
-            return $this->_config['batchsize'][$jobtype];
-        elseif (isset($this->_config['batchsize']['__default']))
-            return $this->_config['batchsize']['__default'];
-        else
-            return 1;
     }
 }
