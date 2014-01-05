@@ -6,58 +6,33 @@
  */
 
 class Quick_Db_Sqlite3_SelectFetcher
+    extends Quick_Db_Base_SelectFetcher
     implements Quick_Db_SelectFetcher
 {
-    protected $_rs, $_fetchMethod, $_selectResult;
-    protected $_columnIndex, $_objectClass, $_objectTemplate;
-    protected $_fetch_assoc_function = 'mysql_fetch_assoc';
-    protected $_fetch_row_function = 'mysql_fetch_row';
-
-    public function __construct( $mysql_rs, $fetchMethod, Quick_Db_Sqlite3_SelectResult $selectResult, $arg = null ) {
-        // we trust the caller to only specify methods that exist
-        $this->_rs = $mysql_rs;
-        $this->_fetchMethod = $fetchMethod;
-        if ($arg !== null) {
-            $this->_columnIndex = $arg;
-            $this->_objectClass = $arg;
-            if (is_object($arg))
-                $this->_objectTemplate = $arg;
-            //elseif (class_exists($arg))
-            //    $this->_objectTemplate = new $arg();
-        }
-
-        // retain a reference to the result object so its destructor will free
-        // the mysql result resource only when all fetchers have been destroyed
-        $this->_selectResult = $selectResult;
-    }
 
     public function fetch( ) {
         $m = $this->_fetchMethod;
         return $this->$m();
     }
     public function reset( ) {
-        @mysql_data_seek($this->_rs, 0);
+        $rs->reset();
     }
 
     protected function _numRows( $rs ) {
-        return mysql_num_rows($rs);
+        return 0;
     }
 
     public function fetchAll( $limit = null ) {
-        $ret = array();
-        $fetchMethod = $this->_fetchMethod;
-        if ($limit === null) {
-            while ($ret[] = $this->$fetchMethod())
-                ;
-            array_pop($ret);
-            return $ret;
+        if ($limit <= 0) return array();
+        if ($limit === null && $this->_fetchMethod === 'fetchHash') {
+            return $this->_rs->fetchArray(SQLITE3_ASSOC);
+        }
+        elseif ($limit === null && $this->_fetchMethod === 'fetchList') {
+            return $this->_rs->fetchArray(SQLITE3_NUM);
         }
         else {
-            while ($ret[] = $this->$fetchMethod() && ++$i <= $limit)
-                ;
-            $tail = end($ret);
-            if (!isset($tail)) array_pop($ret);
-            return $ret;
+            // @NOTE: cannot fetch_all partial results, sqlite can only rewind not seek
+            return parent::fetchAll($limit);
         }
     }
     public function getIterator( ) {
@@ -75,19 +50,5 @@ class Quick_Db_Sqlite3_SelectFetcher
     }
     protected function fetchHashColumn( ) {
         return ($r = $this->_rs->fetchArray(SQLITE3_ASSOC)) ? $r[$this->_columnIndex] : false;
-    }
-    protected function fetchObject( ) {
-        if ($r = $this->fetchHash()) {
-            $object = clone($this->_objectTemplate);
-            foreach ($r as $k => $v) $object->$k = $v;
-            return $object;
-        }
-        return false;
-    }
-    protected function fetchObjectWithBuilder( ) {
-        return ($r = $this->fetchHash()) ? $this->_objectBuilder->createFromHash($r) : false;
-    }
-    protected function fetchObjectByCallback( ) {
-        return ($r = $this->fetchHash()) ? $this->_callback($r) : false;
     }
 }

@@ -79,12 +79,14 @@ class Quick_Rest_AppRunner
 
     public function runCall( Quick_Rest_Request $request, Quick_Rest_Response $response ) {
         try {
-            // note: method and path must match exactly, they are left case sensitive
-            $path = "{$request->getMethod()}::{$request->getPath()}";
-            if (!isset($this->_callbacks[$path]))
-                throw new Quick_Rest_Exception("call not routed to handler: $path");
+            // note: method and path must match exactly, they are both case sensitive
+            if (isset($this->_callbacks[$path = "{$request->getMethod()}::{$request->getPath()}"]))
+                $callback = $this->_callbacks[$path];
+            elseif (isset($this->_callbacks[$path = "ANY::{$request->getPath()}"]))
+                $callback = $this->_callbacks[$path];
+            else
+                throw new Quick_Rest_Exception("call not routed {$request->getMethod()}::{$request->getPath()}");
 
-            $callback = $this->_callbacks[$path];
             if (is_string($callback) && strpos($callback, '::') !== false) {
                 // 5% faster app if we inline this most common use case
                 list($class, $method) = explode('::', $callback);

@@ -20,6 +20,7 @@ interface Quick_Queue_Store
      * Keys are unique per server, not globally.
      */
     public function getJobs($jobtype, $limit);
+    public function getStatus($section, Quick_Queue_Status $status);
 
     // indicate that job is done (delete) or should be tried again (unget)
     public function deleteJobs($jobtype, Array $keys);          // done

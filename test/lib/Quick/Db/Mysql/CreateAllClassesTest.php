@@ -3,7 +3,7 @@
 class Quick_Db_Mysql_CreateAllClassesTest
     extends Quick_Test_Case
 {
-    public function testClassFilesShouldNotHaveErrors( ) {
+    public function testClassFilesShouldNotHaveSyntaxErrors( ) {
         foreach ($files = $this->_findClassFiles() as $file)
             include_once $file;
     }
@@ -11,6 +11,7 @@ class Quick_Db_Mysql_CreateAllClassesTest
     public function testCreateAllClass( ) {
         global $phpunitDbCreds;
 
+        $mysql = new Quick_Db_Mysql_PersistentAdapter();
         $mysql = new Quick_Db_Mysql_Adapter();
 
         $creds = new Quick_Db_Credentials_Discrete();
@@ -35,7 +36,7 @@ class Quick_Db_Mysql_CreateAllClassesTest
 
     public function testFindClassFiles( ) {
         $files = $this->_findClassFiles();
-        $this->assertEquals(9-2, count($files));
+        $this->assertEquals(10 - 2, count($files));
     }
 
     protected function _findClasses( ) {

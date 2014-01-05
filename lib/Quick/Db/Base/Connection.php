@@ -32,7 +32,7 @@ class Quick_Db_Base_Connection
     public function createLink( ) {
         $link = $this->_createLink($this->_creds);
         if (!$link) throw new Quick_Db_Exception("unable to connect to db");
-        $this->configureLink($link);
+        if ($this->_config) $this->configureLink($link);
         return $link;
     }
 

@@ -57,7 +57,7 @@ class Quick_Rest_AppRunnerTest
     /**
      * @expectedException       Quick_Rest_Exception
      */
-    public function testRunRequestShouldThrowExceptionIfPathNotRouted( ) {
+    public function testRunCallShouldThrowExceptionIfPathNotRouted( ) {
         $this->_cut->routeCall('GET', '/foo', 'Quick_Rest_AppRunnerTest_EchoController::echoAction');
         $request = $this->_makeRequest('GET', '/bar', array(), array());
         $this->_cut->runCall($request, $this->_makeResponse());
@@ -70,16 +70,17 @@ class Quick_Rest_AppRunnerTest
         $this->_cut->setRoute('GET://call/name', 123);
     }
 
-    public function testRunRequestShouldInvokeRouteCallbackString( ) {
-        $id = uniqid();
-        $request = $this->_makeRequest('POST', '/call/path', array('a' => 1), array('b' => $id));
-
-        $this->_cut->routeCall('GET|POST', "/call/path", 'Quick_Rest_AppRunnerTest_EchoController::echoAction');
-        $response = $this->_cut->runCall($request, $this->_makeResponse());
-        $this->assertContains($id, $response->getResponse());
+    public function testRunCallShouldInvokeDoublecolonStringCallback( ) {
+        $this->_cut->routeCall('GET|POST|OTHER', "/call/path", 'Quick_Rest_AppRunnerTest_EchoController::echoAction');
+        foreach (array('GET', 'POST', 'OTHER') as $method) {
+            $id = uniqid();
+            $request = $this->_makeRequest($method, '/call/path', array('a' => 1), array('b' => $id));
+            $response = $this->_cut->runCall($request, $this->_makeResponse());
+            $this->assertContains($id, $response->getResponse());
+        }
     }
 
-    public function testRunRequestShouldInvokeProperCallbacks( ) {
+    public function testRunCallShouldInvokeArrayCallbacks( ) {
         $runner = $this->_makeRunner($calls = array('a', 'b', 'c'));
         foreach ($calls as $call)
             $this->_cut->routeCall('GET', "/call/$call", array($runner, $call));
@@ -89,11 +90,25 @@ class Quick_Rest_AppRunnerTest
         }
     }
 
+    public function testRunCallShouldInvokeAnonymousFunctionCallbacks( ) {
+        $runner = $this->_makeRunner($calls = array('a', 'b', 'c'));
+        foreach ($calls as $call)
+            $this->_cut->routeCall('GET', "/call/$call", function ($req, $resp, $app) use ($runner) {
+                $path = $req->getPath();
+                $method = substr($path, strrpos($req->getPath(), '/')+1);
+                $runner->$method($req, $resp, $app);
+            });
+        foreach ($calls as $call) {
+            $request = $this->_makeRequest('GET', "/call/$call", array(), array());
+            $this->_cut->runCall($request, $this->_makeResponse());
+        }
+    }
+
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
         $timer->calibrate(10000, array($this, '_testNullSpeed'), array(1, 2));
-        echo $timer->timeit(10000, 'empty call', array($this, '_testNullSpeed'), array(1, 2));
-        echo $timer->timeit(10000, 'create', array($this, '_testCreateSpeed'), array(1, 2));
+        echo $timer->timeit(20000, 'empty call', array($this, '_testNullSpeed'), array(1, 2));
+        echo $timer->timeit(20000, 'create', array($this, '_testCreateSpeed'), array(1, 2));
         $cut = new Quick_Rest_AppRunner();
         for ($call = 'aa'; $call < 'ac'; $call++) $routes["GET::/$call"] = "class::$call";
         $cut->setRoutes($routes);
@@ -105,15 +120,16 @@ class Quick_Rest_AppRunnerTest
         $request = $this->_makeRequest('GET', '/call/name', array(), array());
         // 640k/s
         $cut->routeCall('GET', '/call/name', 'Quick_Rest_AppRunnerTest_EchoController::echoAction');
-        echo $timer->timeit(10000, 'route to string w/ request', array($this, '_testRunRequestSpeed'), array($cut, $request));
+        echo $timer->timeit(20000, 'route to string w/ request', array($this, '_testRunCallSpeed'), array($cut, $request));
         // 140k/s
-        echo $timer->timeit(10000, 'route to string w/ globals', array($this, '_testRunCallSpeed'), array($cut, $globals));
+        echo $timer->timeit(20000, 'route to string w/ globals', array($this, '_testRunCallSpeedGlobals'), array($cut, $globals));
         // 90k/s
         $cut->routeCall('GET', '/call/name', array(new Quick_Rest_AppRunnerTest_EchoController(), 'echoAction'));
-        echo $timer->timeit(10000, 'route to callback w/ globals', array($this, '_testRunCallSpeed'), array($cut, $globals));
+        echo $timer->timeit(20000, 'route to callback w/ globals', array($this, '_testRunCallSpeedGlobals'), array($cut, $globals));
         // 101k/s
-        echo $timer->timeit(20000, 'handle page hit', array($this, '_testHandleHitSpeed'), array($cut, $globals));
-        // 65k/s
+        echo $timer->timeit(20000, 'oneshot, handle page hit', array($this, '_testOneshotPageHitSpeed'), array($cut, $globals));
+        // 65k/s (85k/s on amd 3.6 GHz)
+        // NOTE: measuring inside apache to capture apc autoloading delays, more like ~1k (cold) to 4k/s (looped)
     }
 
     public function _testNullSpeed( $x, $y ) {
@@ -127,18 +143,18 @@ class Quick_Rest_AppRunnerTest
         $new = new Quick_Rest_AppRunner();
     }
 
-    public function _testRunRequestSpeed( $cut, $request ) {
+    public function _testRunCallSpeed( $cut, $request ) {
         $cut->runCall($request, new Quick_Rest_Response_Http());
     }
 
-    public function _testRunCallSpeed( $cut, & $globals ) {
+    public function _testRunCallSpeedGlobals( $cut, & $globals ) {
         $request = new Quick_Rest_Request_Http();
         $request->setParamsFromGlobals($globals);
         $response = new Quick_Rest_Response_Http();
         $cut->runCall($request, $response);
     }
 
-    public function _testHandleHitSpeed( $cut, & $globals ) {
+    public function _testOneshotPageHitSpeed( $cut, & $globals ) {
         $cut = new Quick_Rest_AppRunner();
         $request = new Quick_Rest_Request_Http();
         $request->setParamsFromGlobals($globals);

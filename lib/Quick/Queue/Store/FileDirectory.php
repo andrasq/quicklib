@@ -19,7 +19,7 @@ class Quick_Queue_Store_FileDirectory
     protected $_store;                          // directory with jobs in fifos
     protected $_keys;                           // unique number generator
     protected $_fifos = array();                // fifo cache
-    protected $_pendingBatches = array();       // currently running batches
+    protected $_pendingBatches = array();       // currently running batches of jobs by type
 
     public function __construct( Quick_Store_FileDirectory $store ) {
         $this->_store = $store;
@@ -83,7 +83,7 @@ class Quick_Queue_Store_FileDirectory
     }
 
     // for unit test introspection:
-    public function getPendingJobs( $jobtype ) {
+    public function getPendingJobsByJobtype( $jobtype ) {
         if (empty($this->_pendingBatches[$jobtype]))
             return array();
         $ret = array();
@@ -93,6 +93,15 @@ class Quick_Queue_Store_FileDirectory
         return $ret;
     }
 
+    public function getStatus( $section, Quick_Queue_Status $status ) {
+        $status->set($section, 'jobtypes', $this->getJobtypes());
+        $batches = array();
+        foreach ($this->_pendingBatches as $jobtype => $info) {
+            $batches[$jobtype] = count($info['keys']);
+        }
+        $status->set($section, 'batches', $batches);
+        // exact status TBD
+    }
 
     protected function _fetchJobtypes( ) {
         return $this->_store->getNames();

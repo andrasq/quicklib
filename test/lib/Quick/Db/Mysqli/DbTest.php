@@ -14,7 +14,8 @@ class Quick_Db_Mysqli_DbExposer extends Quick_Db_Mysqli_Db {
 class Quick_Db_Mysqli_DbTest
     extends Quick_Test_Case
 {
-    protected $_fakeResult = -1;
+    // the result should not be bool true, else mysqli will try to free it
+    protected $_fakeResult = 0;
 
     public function setUp( ) {
         $this->_adapter = $this->getMock('Quick_Db_Mysqli_Adapter', array('mysql_query', 'mysql_errno', 'mysql_error'));
@@ -72,6 +73,32 @@ class Quick_Db_Mysqli_DbTest
 return;
         $info = $this->_cut->getQueryInfo();
         $this->assertType('Quick_Db_QueryInfo', $info);
+    }
+
+    public function testAsListShouldReturnList( ) {
+        $cut = $this->_createDb();
+        $expect = array(1);
+        $this->assertEquals($expect, $cut->select("SELECT 1 AS one")->asList()->fetch());
+    }
+
+    public function testAsHashShouldReturnHash( ) {
+        $cut = $this->_createDb();
+        $expect = array('one' => 1);
+        $this->assertEquals($expect, $cut->select("SELECT 1 AS one")->asHash()->fetch());
+    }
+
+    public function testAsObjectShouldReturnObject( ) {
+        $cut = $this->_createDb();
+        $expect = new StdClass();
+        $expect->one = 1;
+        $this->assertEquals($expect, $cut->select("SELECT 1 AS one")->asObject(new StdClass())->fetch());
+    }
+
+    protected function _createDb( ) {
+        global $phpunitDbCreds;
+        $conn = new Quick_Db_Mysqli_Connection($phpunitDbCreds, new Quick_Db_Mysqli_Adapter());
+        $link = $conn->createLink();
+        return $cut = new Quick_Db_Mysqli_Db($link, new Quick_Db_Mysqli_Adapter($link));
     }
 
     public function xx_testSpeed( ) {

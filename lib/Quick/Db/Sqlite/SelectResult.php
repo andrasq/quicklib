@@ -36,9 +36,7 @@ class Quick_Db_Sqlite_SelectResult
         $this->_fetchMethod = is_integer($idx) ? 'fetchListColumn' : 'fetchHashColumn';
         return new Quick_Db_Sqlite_SelectFetcher($this->_rs, $this->_fetchMethod, $this, $idx);
     }
-    public function asObject( $class = 'Quick_Db_Object' ) {
-        if (!is_subclass_of($class, 'Quick_Db_Object') && $class !== 'Quick_Db_Object')
-            throw new Quick_Db_Exception("$class: not a Quick_Db_Object");
-        return new Quick_Db_Sqlite_SelectFetcher($this->_rs, 'fetchObject', $this, $class);
+    public function asObject( $objectSpecifier ) {
+        return new Quick_Db_Sqlite_SelectFetcher($this->_rs, 'asObject', $this, $objectSpecifier);
     }
 }

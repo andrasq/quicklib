@@ -16,8 +16,8 @@ interface Quick_Queue_Scheduler
 
     public function configure($what, $jobtype, $value);
     public function getJobtypeToRun();
-    public function & getBatchToRun($jobtype, $limit = null);
-    public function setBatchDone($jobtype, Array & $jobs);
+    public function getBatchToRun($jobtype, $limit = null);
+    public function setBatchDone($jobtype, Quick_Queue_Batch $batch);
 
     /*
      * Note: scheduling order, priorities, configuration etc. TBD

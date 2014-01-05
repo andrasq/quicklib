@@ -95,22 +95,22 @@ class Quick_Queue_Scheduler_Random
         return false;
     }
 
-    public function & getBatchToRun( $jobtype, $limit = null ) {
+    public function getBatchToRun( $jobtype, $limit = null ) {
         if ($limit === null) $limit = $this->_queueConfig->get('batchsize', $jobtype);
         $batchsize = $this->_queueConfig->get('batchsize', $jobtype);
         $limit = isset($limit) ? min($limit, $batchsize) : $batchsize;
         $jobs = $this->_store->getJobs($jobtype, $limit);
         if (isset($this->_batchcounts[$jobtype]))
-            $this->_batchcounts[$jobtype] += 1;
+            ++$this->_batchcounts[$jobtype];
         else
             $this->_batchcounts[$jobtype] = 1;
-        return $jobs;
+        return new Quick_Queue_Batch($jobtype, $jobs);
     }
 
-    public function setBatchDone( $jobtype, Array & $jobs ) {
+    public function setBatchDone( $jobtype, Quick_Queue_Batch $batch ) {
+        $jobtype = $batch->jobtype;
         if (isset($this->_batchcounts[$jobtype])) {
-            $this->_batchcounts[$jobtype] -= 1;
-            if ($this->_batchcounts[$jobtype] <= 0)
+            if (--$this->_batchcounts[$jobtype] <= 0)
                 unset($this->_batchcounts[$jobtype]);
         }
     }

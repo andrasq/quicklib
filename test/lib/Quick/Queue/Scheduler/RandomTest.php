@@ -36,8 +36,9 @@ class Quick_Queue_Scheduler_RandomTest
     public function testConfigureBatchSizeShouldChangeNumberInBatch( ) {
         $this->_cut->configure(Quick_Queue_Scheduler::SCHED_BATCHSIZE, '__default', 2);
         $jobtype = 'a';
-        $jobs = $this->_cut->getBatchToRun($jobtype);
-        $this->assertEquals(2, count($jobs));
+        $batch = $this->_cut->getBatchToRun($jobtype);
+        $this->assertEquals(2, count($batch->jobs));
+        $this->assertEquals(2, $batch->count);
     }
 
     public function testGetConfigShouldReturnConfiguration( ) {
@@ -58,12 +59,16 @@ class Quick_Queue_Scheduler_RandomTest
         $jobtype = $this->_cut->getJobtypeToRun();
         $this->assertContains($jobtype, array('a', 'b'));
 
-        $jobs = $this->_cut->getBatchToRun('a');
+        $batch = $this->_cut->getBatchToRun('a');
+        $jobs = $batch->jobs;
+        $this->assertEquals(1, $batch->count);
         $this->assertEquals(1, count($jobs));
         $this->assertEquals(1, current($jobs));
         $this->assertEquals(array(2,3), $this->_store->jobs['a']);
 
-        $jobs = $this->_cut->getBatchToRun('b');
+        $batch = $this->_cut->getBatchToRun('b');
+        $jobs = $batch->jobs;
+        $this->assertEquals(1, $batch->count);
         $this->assertEquals(1, count($jobs));
         $this->assertEquals(11, current($jobs));
         $this->assertEquals(array(22,33), $this->_store->jobs['b']);

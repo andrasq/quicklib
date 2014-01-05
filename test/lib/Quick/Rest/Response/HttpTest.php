@@ -47,6 +47,22 @@ class Quick_Rest_Response_HttpTest
         $this->assertGreaterThan(strpos($output, $u1), strpos($output, $u2));
     }
 
+    public function testAppendContentShouldBeOutputAfterOutputStarted( ) {
+        $u1 = uniqid();
+        $u2 = uniqid();
+        $this->_cut->setCli(true);
+        $this->_cut->setContent("$u1\n");
+        ob_start();
+        ob_start();
+        $this->_cut->emitResponse();
+        $output1 = ob_get_clean();
+        $this->_cut->appendContent("$u2\n");
+        $output2 = ob_get_clean();
+        $this->assertContains($u1, $output1);
+        $this->assertNotContains($u2, $output1);
+        $this->assertContains($u2, $output2);
+    }
+
     public function testGetResponseShouldReturnEmittedOutput( ) {
         $this->_cut->setValue('a', 1);
         $this->_cut->setContent("test");

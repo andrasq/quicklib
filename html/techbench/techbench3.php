@@ -38,18 +38,75 @@ $request->setParamsFromGlobals($GLOBALS);
 //if (PHP_SAPI === 'cli') $response->setCli(true);
 
 switch ($request->getParam('op')) {
-case 'json':
-    $msg = json_encode(array('message' => "Hello, World!"));
-    $response->setContent($msg);
-    $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
-    break;
-case 'db':
-    break;
-case 'plaintext':
-    $msg = "Hello, world.";
-    $response->setContent($msg);
-    $response->setHttpHeader("Content-Type", "text/plain; charset=\"UTF-8\"");
-    break;
+    case 'json':
+        $msg = json_encode(array('message' => "Hello, World!"));
+        $response->setContent($msg);
+        $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
+        break;
+
+    case 'db':
+        // mysql: 7500/sec, mysqli: 6500/sec
+        //$link = mysqli_connect("p:localhost", "andras", null);
+        //$db = new Quick_Db_Mysqli_Db($link, new Quick_Db_Mysqli_Adapter($link));
+        $link = mysql_pconnect("localhost", "andras", null);
+        $db = new Quick_Db_Mysql_Db($link, new Quick_Db_Mysql_Adapter($link));
+        $rs = $db->select("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000))->asHash();
+        $response->setContent(json_encode($rs->fetch()));
+        $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
+        break;
+
+    case 'queries':
+        $queries = $request->getParam('queries');
+        if ($queries < 1 || $queries > 500) $queries = 1;
+        $link = mysql_pconnect("localhost", "andras", null);
+        $db = new Quick_Db_Mysql_Db($link, new Quick_Db_Mysql_Adapter($link));
+        // $ret = array_map('fetch_random_row', array_fill(0, $queries, $db));
+        while (--$queries >= 0) {
+            $ret[] = $db->select("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000))->asHash()->fetch();
+        }
+        $response->setContent(json_encode($ret));
+        $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
+        break;
+
+    case 'updates':
+        $queries = $request->getParam('queries');
+        if ($queries < 1 || $queries > 500) $queries = 1;
+        $link = mysql_pconnect("localhost", "andras", null);
+        $db = new Quick_Db_Mysql_Db($link, new Quick_Db_Mysql_Adapter($link));
+        $template = new StdClass();
+        while (--$queries >= 0) {
+            $obj = $db->select("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000))
+                ->asObject($template)->fetch();
+            $ret[$obj->id] = $obj;
+            $obj->randomNumber = mt_rand(1, 10000);
+        }
+        // nb: order the rows to avoid innodb deadlocks
+        ksort($ret);
+        foreach ($ret as $obj) $namevals[] = "($obj->id, $obj->randomNumber)";
+        $dataSql = implode(", ", $namevals);
+        $insertSql =
+            "INSERT INTO test.World (id, randomNumber) VALUES $dataSql
+             ON DUPLICATE KEY UPDATE randomNumber = VALUES(randomNumber)";
+        $db->execute($insertSql);
+/**
+        foreach ($ret as $obj) $namevals[] = "$obj->id AS id, $obj->randomNumber AS randomNumber";
+        $dataSql = "SELECT " . implode(" UNION ALL SELECT ", $namevals);
+        $updateSql = "UPDATE test.World w JOIN ($dataSql) t USING(id) SET w.randomNumber = t.randomNumber";
+        $db->execute($updateSql);
+**/
+        $response->setContent(json_encode($ret));
+        $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
+        break;
+
+    case 'plaintext':
+        $msg = "Hello, world.";
+        $response->setContent($msg);
+        $response->setHttpHeader("Content-Type", "text/plain; charset=\"UTF-8\"");
+        break;
+}
+
+function fetch_random_row( $db ) {
+    return $db->select("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000))->asHash()->fetch();
 }
 
 $response->emitResponse();

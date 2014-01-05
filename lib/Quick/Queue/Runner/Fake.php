@@ -11,7 +11,7 @@ class Quick_Queue_Runner_Fake
     implements Quick_Queue_Runner
 {
     protected $_queueConfig, $_config = array();
-    protected $_jobs = array();
+    protected $_batches = array();
 
     public function __construct( Quick_Queue_Config $queueConfig ) {
         $this->_queueConfig = $queueConfig;
@@ -22,27 +22,33 @@ class Quick_Queue_Runner_Fake
         $this->_queueConfig->set($type, $name, $value);
     }
 
-    public function runBatch( $jobtype, Array $datasets ) {
+    public function runBatch( $jobtype, Quick_Queue_Batch $batch ) {
         // jobs are immediately done!
-        if (isset($this->_jobs[$jobtype])) $this->_jobs[$jobtype] += $datasets;
-        else $this->_jobs[$jobtype] = $datasets;
+        $this->_batches[$jobtype][] = $batch;
         return true;
     }
 
     public function getDoneJobtypes( ) {
-        return array_keys($this->_jobs);
+        return array_keys($this->_batches);
     }
 
-    public function & getDoneBatch( $jobtype ) {
+    public function getDoneBatch( $jobtype ) {
         $ret = array();
-        foreach ($this->_jobs[$jobtype] as $key => $input) {
+        $batch = array_pop($this->_batches[$jobtype]);
+        if (!$this->_batches[$jobtype]) unset($this->_batches[$jobtype]);
+
+        // fake runner echoes its input
+        $pid = getmypid();
+        foreach ($batch->jobs as $key => $input) {
             // for each done job, fake a result
             $ret[$key] = array(
                 'status' => 0,
+                'pid' => $pid,
                 'result' => $input,
             );
         }
-        unset($this->_jobs[$jobtype]);
-        return $ret;
+        $batch->results = & $ret;
+
+        return $batch;
     }
 }

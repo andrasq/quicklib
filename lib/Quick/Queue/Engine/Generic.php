@@ -8,6 +8,7 @@
  */
 
 class Quick_Queue_Engine_Generic
+    implements Quick_Queue_Engine
 {
     protected $_store, $_scheduler, $_runner;
     protected $_queueConfig, $_archiver;
@@ -18,7 +19,6 @@ class Quick_Queue_Engine_Generic
 
     protected $_capCount = 128;         // task count limit on concurrent tasks
     protected $_capWeight = 16;         // cpu limit on concurrent tasks
-    protected $_runningTasks = array(); // image of each running tasks, kept for archival
     protected $_runningCount = 0;       // number of concurrent tasks currently running
     protected $_runningWeight = 0;      // total cpu usage density currently running
 
@@ -35,10 +35,12 @@ class Quick_Queue_Engine_Generic
 
     public function setConfig( Array $jobtypeConfig ) {
         // TBD
+        return $this;
     }
 
     public function setArchiver( Quick_Queue_Archiver $archiver ) {
         $this->_archiver = $archiver;
+        return $this;
     }
 
     public function run( $runDurationLimit = 1.00, $runTaskcountLimit = 1000000000 ) {
@@ -61,14 +63,44 @@ class Quick_Queue_Engine_Generic
         }
 
         $this->_totalTime += (microtime(true) - $startTime);
+        return $this;
     }
 
     public function finish( ) {
         // wait for still running tasks
         $startTime = microtime(true);
-        $this->_retireRunningJobs();
+        $this->_waitForRunningJobs();
         $this->_totalTime += (microtime(true) - $startTime);
     }
+
+    public function getStatus( Quick_Queue_Status $status ) {
+        /**
+         server, load, procs/threads, date
+         procs forked/sec, http calls / sec, messages sent / sec (? gearman?)
+         **/
+        //$status->set('system', 'name', php_uname('n'));
+        //$status->set('system', 'date', date("Y-m-d H:i:s"));
+
+        $la = explode(" ", trim(file_get_contents("/proc/loadavg")));
+        $status->set('system', 'load', array($la[0], $la[1], $la[2]));
+        $status->set('system', 'threads', $la[3]);
+
+        $status->set('queue', 'runtime', $this->_totalTime);
+        $status->set('queue', 'started', $this->_totalCount);
+        $status->set('queue', 'finished', $this->_runCount);
+        $status->set('queue', 'running', $this->_runningCount);
+
+        $sts = new Quick_Queue_Status();
+        $this->_store->getStatus('store', $sts);
+        $status->set('jobs', 'jobcount', count($sts->get('store', 'jobtypes')));
+        $status->set('jobs', 'jobtypes', $sts->get('store', 'jobtypes'));
+        $status->set('jobs', 'batchcount', count($sts->get('store', 'batches')));
+        $status->set('jobs', 'batchtypes', array_unique(array_keys($sts->get('store', 'batches'))));
+        $status->set('jobs', 'batches', $sts->get('store', 'batches'));
+
+        return $status;
+    }
+
 
     protected function _shouldContinueToRun( ) {
         return (
@@ -90,12 +122,10 @@ class Quick_Queue_Engine_Generic
         if (! $jobtypes = $this->_runner->getDoneJobtypes())
             return false;
         foreach ($jobtypes as $jobtype) {
-            $jobresults = $this->_runner->getDoneBatch($jobtype);
-            $this->_scheduler->setBatchDone($jobtype, $jobresults);
-            $this->_processResults($jobtype, $jobresults);
-            if ($this->_archiver)
-                $this->_runningTasks = array_diff_key($this->_runningTasks, $jobresults);
-            $n = count($jobresults);
+            $batch = $this->_runner->getDoneBatch($jobtype);
+            $this->_scheduler->setBatchDone($jobtype, $batch);
+            $this->_processResults($jobtype, $batch);
+            $n = $batch->count;
             $this->_runningCount -= $n;
             $this->_runningWeight -= $this->_queueConfig->get('weight', $jobtype);
             // note: only retire 1 batch at a time, faster to interleave retiring and launching
@@ -104,7 +134,7 @@ class Quick_Queue_Engine_Generic
         return true;
     }
 
-    protected function _retireRunningJobs( ) {
+    protected function _waitForRunningJobs( ) {
         do {
             $this->_retireDoneJobs();
         } while ($this->_runningCount > 0 && (1 + usleep(2000)));
@@ -112,26 +142,25 @@ class Quick_Queue_Engine_Generic
 
     protected function _launchNewJobs( $limit ) {
         $jobtype = $this->_scheduler->getJobtypeToRun();
-        if ($jobtype && ($jobs = $this->_scheduler->getBatchToRun($jobtype, $limit))) {
-            if ($this->_runner->runBatch($jobtype, $jobs)) {
+        if ($jobtype && ($batch = $this->_scheduler->getBatchToRun($jobtype, $limit))) {
+            if ($this->_runner->runBatch($jobtype, $batch)) {
                 // jobs started, count them and keep a copy for archival
-                $n = count($jobs);
+                $n = count($batch->jobs);
                 $this->_totalCount += $n;
                 $this->_runningCount += $n;
                 $this->_runningWeight = $this->_queueConfig->get('weight', $jobtype);
-                if ($this->_archiver)
-                    $this->_runningTasks += $jobs;
                 return true;
             }
             else {
                 // if unable to start the jobs, try later
-                $this->_store->ungetJobs($jobtype, array_keys($jobs));
+                $this->_store->ungetJobs($jobtype, array_keys($batch->jobs));
             }
         }
         return false;
     }
 
-    protected function _processResults( $jobtype, Array & $jobresults ) {
+    protected function _processResults( $jobtype, Quick_Queue_Batch $batch ) {
+        $jobresults = & $batch->results;
         $succeeded = $unrun = $failed = array();
         foreach ($jobresults as $key => $result) {
             if (!is_array($result))
@@ -161,8 +190,10 @@ class Quick_Queue_Engine_Generic
             }
         }
         
-        if ($this->_archiver)
-            $this->_archiver->archiveJobResults($jobtype, array_intersect_key($this->_runningTasks, $jobresults), $jobresults);
+        if ($this->_archiver) {
+            $jobs = & $batch->jobs;
+            $this->_archiver->archiveJobResults($jobtype, $jobs, $jobresults);
+        }
 
         if ($succeeded) {
             $this->_store->deleteJobs($jobtype, $succeeded);

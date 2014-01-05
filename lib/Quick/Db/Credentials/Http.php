@@ -51,7 +51,7 @@ class Quick_Db_Credentials_Http
         $patt =
             "((\w+):(\/\/)?)?" .        // mysql:
             "(\w+)" .                   // user
-            "(\+([^@]+))?" .            // +password
+            "(\+([^@]*))?" .            // +password
             "@" .                       // @
             "([^+:\?\/]+)" .            // host
             "(:(([0-9]+)|([^+\?]+)))?" .// :port or :socket

@@ -1,6 +1,9 @@
 <?
 
 /**
+ * Queue job runner that starts a shell command to process the batch.
+ * Each batch is run in a separate command; the command must exit when done.
+ *
  * Copyright (C) 2013 Andras Radics
  * Licensed under the Apache License, Version 2.0
  */
@@ -10,7 +13,6 @@ class Quick_Queue_Runner_Shell
 {
     protected $_procs = array(), $_doneProcs = array();
     protected $_queueConfig, $_config = array();
-    protected $_jobs = array();
 
     public function __construct( Quick_Queue_Config $queueConfig ) {
         $this->_queueConfig = $queueConfig;
@@ -26,28 +28,26 @@ class Quick_Queue_Runner_Shell
         $this->_queueConfig->set($type, $name, $value);
     }
 
-    public function runBatch( $jobtype, Array & $datasets ) {
+    public function runBatch( $jobtype, Quick_Queue_Batch $batch ) {
+        $datasets = & $batch->jobs;
         $inputFile = new Quick_Test_Tempfile("/tmp", "qq-job-");
         $outputFile = new Quick_Test_Tempfile("/tmp", "qq-ret-");
         $proc = $this->_getProcForJobtype($jobtype, $inputFile, $outputFile);
         if (!$proc) return false;
 
         // attach the tempfiles to the process, so automatically remove when done
+        $proc->batch = $batch;
         $proc->inputFile = $inputFile;
         $proc->outputFile = $outputFile;
-        $proc->batchKeys = array_keys($datasets);
         $proc->startTm = microtime(true);
 
-        if (substr(end($datasets), -1) !== "\n")
-            // synthetic data may not be newline-terminated, do so now
-            foreach ($datasets as & $data) $data .= "\n";
-        file_put_contents($proc->inputFile, implode("", $datasets));
+        $this->_writeBatchDatasetsToFile($proc->inputFile, $batch->jobs);
 
         $proc->open();
 
         // launch the process to run the batch
         $cmdline = $this->_getCmdlineForJobtype($jobtype, $proc->inputFile, $proc->outputFile);
-        $proc->putInput($cmdline . "; echo ok\n");
+        $proc->putInput($cmdline . "; echo '<ok>'\n");
         $this->_procs[$jobtype][] = $proc;
 
         return true;
@@ -59,14 +59,16 @@ class Quick_Queue_Runner_Shell
     }
 
     // return one batch of done jobs
-    public function & getDoneBatch( $jobtype ) {
+    public function getDoneBatch( $jobtype ) {
         if (empty($this->_doneProcs[$jobtype]))
-            return array();
+            return null;
 
         $proc = array_pop($this->_doneProcs[$jobtype]);
+        $batch = $proc->batch;
         $batchResults = array();
         $pid = $proc->getPid();
-        $runtime = sprintf("%.6f", (microtime(true) - $proc->startTm) / count($proc->batchKeys));
+        $runtime = sprintf("%.6f", (microtime(true) - $proc->startTm) / $batch->count);
+        // process is terminated by the destructor
 
         foreach (file($proc->outputFile) as $line) {
             // recover the json bundle from the results, this also validates the json formatting
@@ -104,7 +106,7 @@ class Quick_Queue_Runner_Shell
             }
         }
         // all missing values are from jobs presumably not run, mark them as such
-        $n = count($proc->batchKeys) - count($batchResults);
+        $n = $batch->count - count($batchResults);
         for ($i=0; $i<$n; ++$i) {
             $batchResults[] = array(
                 'status' => Quick_Queue_Runner::RUN_UNRUN,
@@ -114,8 +116,9 @@ class Quick_Queue_Runner_Shell
 
         if (!$this->_doneProcs[$jobtype]) unset($this->_doneProcs[$jobtype]);
 
-        $results = array_combine($proc->batchKeys, $batchResults);
-        return $results;
+        $results = array_combine(array_keys($batch->jobs), $batchResults);
+        $batch->results = & $results;
+        return $batch;
     }
 
 
@@ -131,10 +134,22 @@ class Quick_Queue_Runner_Shell
     protected function _getCmdlineForJobtype( $jobtype, $input, $output ) {
         if (($runner = $this->_queueConfig->get('runner', $jobtype)) && $runner[0] === '!') {
             $runner = substr($runner, 1);
-            return "$runner < $input > $output";
+            return "$runner < $input > $output 2>&1";
         }
         else {
             throw new Quick_Queue_Exception("shell runner: type $jobtype does not have a shell command configured");
+        }
+    }
+
+    protected function _writeBatchDatasetsToFile( $file, Array & $datasets ) {
+        if (substr(end($datasets), -1) === "\n") {
+            file_put_contents($file, implode("", $datasets));
+        }
+        else {
+            ob_start();
+            // synthetic data may not be newline-terminated, do so now
+            foreach ($datasets as $data) echo $data, "\n";
+            file_put_contents($file, ob_get_clean());
         }
     }
 
@@ -145,7 +160,11 @@ class Quick_Queue_Runner_Shell
             $doneSlots = array();
             foreach ($procs as $slot => $proc) {
                 if ($line = $proc->getOutput()) {
-                    if ($line !== "ok\n") throw new Quick_Queue_Exception("unexpected response from shell job: $line");
+                    if ($line !== "<ok>\n") throw new Quick_Queue_Exception("unexpected response from shell job: $line");
+                    $this->_doneProcs[$jobtype][] = $proc;
+                    $doneSlots[] = $slot;
+                }
+                elseif (!$proc->isRunning()) {
                     $this->_doneProcs[$jobtype][] = $proc;
                     $doneSlots[] = $slot;
                 }

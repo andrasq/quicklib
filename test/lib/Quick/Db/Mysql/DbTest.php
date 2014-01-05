@@ -135,6 +135,40 @@ class Quick_Db_Mysql_DbTest
         $this->assertContains("UPDATE 33", $data[1]);
     }
 
+    public function testAsListShouldReturnList( ) {
+        $cut = $this->_createDb();
+        $expect = array(1);
+        $this->assertEquals($expect, $cut->select("SELECT 1 AS one")->asList()->fetch());
+    }
+
+    public function testAsHashShouldReturnHash( ) {
+        $cut = $this->_createDb();
+        $expect = array('one' => 1);
+        $this->assertEquals($expect, $cut->select("SELECT 1 AS one")->asHash()->fetch());
+    }
+
+    public function testAsObjectShouldReturnObject( ) {
+        $cut = $this->_createDb();
+        $expect = new StdClass();
+        $expect->one = 1;
+        $this->assertEquals($expect, $cut->select("SELECT 1 AS one")->asObject(new StdClass())->fetch());
+    }
+
+    public function testAsObjectWithCallbackShouldReturnObject( ) {
+        $cut = $this->_createDb();
+        $callback = function ($r) { $ret = new StdClass(); foreach ($r as $k => $v) $ret->$k = $v; return $ret; };
+        $expect = new StdClass();
+        $expect->one = 1;
+        $this->assertEquals($expect, $cut->select("SELECT 1 AS one")->asObject($callback)->fetch());
+    }
+
+    protected function _createDb( ) {
+        global $phpunitDbCreds;
+        $conn = new Quick_Db_Mysql_Connection($phpunitDbCreds, new Quick_Db_Mysql_Adapter());
+        $link = $conn->createLink();
+        return $cut = new Quick_Db_Mysql_Db($link, new Quick_Db_Mysql_Adapter($link));
+    }
+
     public function xx_testSpeed( ) {
         // see also ar/time-db-speed.php, timings are 4x slower within phpunit
 
@@ -143,18 +177,38 @@ class Quick_Db_Mysql_DbTest
 
         //$cut = $this->_cut;
         global $phpunitDbCreds;
-        $conn = new Quick_Db_Mysql_Connection($phpunitDbCreds, new Quick_Db_Mysql_Adapter());
-        $cut = new Quick_Db_Mysql_Db($conn->getLink(), new Quick_Db_Mysql_Adapter($conn->getLink()));
+        $creds = new Quick_Db_Credentials_Discrete("host=localhost,port=3306,user=andras,password=");
+        //$conn = new Quick_Db_Mysql_Connection($phpunitDbCreds, new Quick_Db_Mysql_Adapter());
+        $conn = new Quick_Db_Mysql_Connection($creds, new Quick_Db_Mysql_Adapter());
+        $link = $conn->createLink();
+        $cut = new Quick_Db_Mysql_Db($link, new Quick_Db_Mysql_Adapter($link));
+
+        echo $timer->timeit(10000, "createLink", array($this, '_testSpeedCreateLink'), array($conn));
+        // 15.0k/s without USE andras_test (the initial built-in config); 6.4k/s with
 
         echo $timer->timeit(10000, "query", array($this, '_testSpeedQuery'), array($cut));
-        // 30-39k/s "select 1"
+        // 30-39k/s "select 1" (mostly 35-36k/s)
 
         $cut = new Quick_Db_Decorator_QueryTagger($cut);
         echo $timer->timeit(10000, "decorated (tagged) query", array($this, '_testSpeedQuery'), array($cut));
-        // 20k/s
+        // 17-20k/s (mostly 17k/s)
+
+        echo $timer->timeit(10000, "result", array($this, '_testSpeedResult'), array($cut));
+        // 17k/s "select 1"
+        echo $timer->timeit(10000, "oneshot", array($this, '_testSpeedOneshot'), array($creds));
+        // 8.3k/s "select 1" without USE db, 4.9k/s with
+
+        echo $timer->timeit(10000, "mysql_connect", array($this, '_testSpeedMysqlConnect'), array($conn));
+        // 15.8k/s
+        echo $timer->timeit(10000, "mysql oneshot", array($this, '_testSpeedMysqlOneshot'), array($conn));
+        // 9.3k/s -- 10-13% oneshot overhead for class hierarchy (not including autoload time!)
     }
 
     public function _testSpeedNull( $cut ) {
+    }
+
+    public function _testSpeedCreateLink( $conn ) {
+        $conn->createLink();
     }
 
     public function _testSpeedQuery( $cut ) {
@@ -163,5 +217,30 @@ class Quick_Db_Mysql_DbTest
 
     public function _testSpeedSelect( $cut ) {
         $cut->execute("SELECT 1");
+    }
+
+    public function _testSpeedResult( $cut ) {
+        //$cut->query("SELECT 1")->asList()->fetch();   // 17k/s
+        $cut->query("SELECT 1")->asColumn()->fetch();   // 17k/s
+    }
+
+    public function _testSpeedOneshot( $creds ) {
+        $adapter = new Quick_Db_Mysql_Adapter();
+        $conn = new Quick_Db_Mysql_Connection($creds, $adapter);
+        $link = $conn->createLink();
+        $adapter->setLink($link);
+        $db = new Quick_Db_Mysql_Db($link, $adapter);
+        return $db->query("SELECT 1")->asColumn()->fetch();
+    }
+
+    public function _testSpeedMysqlConnect( $dummy ) {
+        mysql_connect("localhost", "andras", null, true);
+    }
+
+    public function _testSpeedMysqlOneshot( $dummy ) {
+        $link = mysql_connect("localhost", "andras", null, true);
+        $rs = mysql_query("SELECT 1", $link);
+        $rs = mysql_fetch_row($rs);
+        return $rs[0];
     }
 }

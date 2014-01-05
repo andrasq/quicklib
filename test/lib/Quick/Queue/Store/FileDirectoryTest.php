@@ -38,6 +38,13 @@ class Quick_Queue_Store_FileDirectoryTest
         $this->assertEquals("a\nb\nc\n", file_get_contents($this->_store->getFilename("jobtype-2")));
     }
 
+    public function testGetStatusShouldSetValuesInStatusSection( ) {
+        $section = uniqid();
+        $status = array();
+        $this->_cut->getStatus($section, new Quick_Queue_Status($status));
+        $this->assertTrue(isset($status[$section]));
+    }
+
     public function testGetJobsShouldRetrieveJobsAddedWithAddJobsElseEmptyArray( ) {
         $this->_cut->addJobs("jobtype-3", array("a", "b", "c"));
         $this->assertEquals(array("a\n", "b\n"), array_values($this->_cut->getJobs("jobtype-3", 2)));

@@ -1,5 +1,7 @@
 <?php
 
+// $start_tm = microtime(true);
+
 /*
  * Toolkit benchmark in the form of TechEmpower, run on localhost.
  * http://www.techempower.com/benchmarks
@@ -43,18 +45,34 @@ $request->setParamsFromGlobals($GLOBALS);
 if (PHP_SAPI === 'cli') $response->setCli(true);
 
 $routes = array(
-    'GET::/json' => "testApp::jsonAction",
-    'GET::/db' => "testApp::dbAction",
-    'GET::/plaintext' => "testApp::plaintextAction",
+    //'GET::/json' => "jsonAction",             // function callbacks are no faster than app methods
+    'GET::/json' => "testController::jsonAction",
+    'GET::/db' => "testController::dbAction",
+    'GET::/queries' => "testController::queriesAction",
+    'GET::/updates' => "testController::updatesAction",
+    'GET::/plaintext' => "testController::plaintextAction",
 );
 $app->setRoutes($routes);
 
+function jsonAction( Quick_Rest_Request $request, Quick_Rest_Response $response, Quick_Rest_App $app ) {
+    $msg = json_encode(array('message' => "Hello, World!"));
+    $response->setContent($msg);
+    $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
+}
+
+// The app encapsulates state and makes it available to the calls.
 class testApp
+    implements Quick_Rest_App
+{
+    public function getInstance( $name ) {
+        return null;
+    }
+}
+
+// The controller(s) implement the calls.  All calls have the same signature.
+class testController
     implements Quick_Rest_Controller
 {
-    public function getInstance( ) {
-    }
-
     public function jsonAction( Quick_Rest_Request $request, Quick_Rest_Response $response, Quick_Rest_App $app ) {
         $msg = json_encode(array('message' => "Hello, World!"));
         $response->setContent($msg);
@@ -62,6 +80,55 @@ class testApp
     }
 
     public function dbAction( Quick_Rest_Request $request, Quick_Rest_Response $response, Quick_Rest_App $app ) {
+        // create table if not exists World (id int primary key auto_increment, randomNumber int) engine=MyISAM;
+        $conn = new Quick_Db_Mysql_Connection(
+            new Quick_Db_Credentials_Http("mysql://andras+@localhost:3306"),
+            $adapter = new Quick_Db_Mysql_PersistentAdapter()
+        );
+        $adapter->setLink($link = $conn->createLink());
+        $db = new Quick_Db_Mysql_Db($link, $adapter);
+        $rs = $db->select("SELECT id, randomNumber FROM test.World WHERE id = ?", array(mt_rand(1, 10000)))->asHash()->fetch();
+        $response->setContent(json_encode($rs));
+        $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
+    }
+
+    public function queriesAction( Quick_Rest_Request $request, Quick_Rest_Response $response, Quick_Rest_App $app ) {
+        $queries = $request->getParam('queries');
+        if ($queries < 1 || $queries > 500) $queries = 1;
+        $conn = new Quick_Db_Mysql_Connection(
+            new Quick_Db_Credentials_Http("mysql://andras+@localhost:3306"),
+            $adapter = new Quick_Db_Mysql_PersistentAdapter()
+        );
+        $adapter->setLink($link = $conn->createLink());
+        $db = new Quick_Db_Mysql_Db($link, $adapter);
+        while (--$queries >= 0) {
+            $ret[] = $db->select("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000))->asHash()->fetch();
+        }
+        $response->setContent(json_encode($ret));
+        $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
+    }
+
+    public function updatesAction( Quick_Rest_Request $request, Quick_Rest_Response $response, Quick_Rest_App $app ) {
+        $queries = $request->getParam('queries');
+        if ($queries < 1 || $queries > 500) $queries = 1;
+        $conn = new Quick_Db_Mysql_Connection(
+            new Quick_Db_Credentials_Http("mysql://andras+@localhost:3306"),
+            $adapter = new Quick_Db_Mysql_PersistentAdapter()
+        );
+        $adapter->setLink($link = $conn->createLink());
+        $db = new Quick_Db_Mysql_Db($link, $adapter);
+        $template = new StdClass();
+        while (--$queries >= 0) {
+            $obj = $ret[] = $db->select("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000))
+                ->asObject($template)->fetch();
+            $obj->randomNumber = mt_rand(1, 10000);
+        }
+
+        $save = new Quick_Db_Sql_SaveMany($db, 'test.World', 'id');
+        $save->saveMany($ret);
+
+        $response->setContent(json_encode($ret));
+        $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
     }
 
     public function plaintextAction( Quick_Rest_Request $request, Quick_Rest_Response $response, Quick_Rest_App $app ) {
@@ -70,6 +137,7 @@ class testApp
         $response->setHttpHeader("Content-Type", "text/plain; charset=\"UTF-8\"");
     }
 }
-
 $app->runCall($request, $response);
 $response->emitResponse();
+
+// echo "duration = ", microtime(true) - $start_tm, "\n";

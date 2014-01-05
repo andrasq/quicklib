@@ -19,6 +19,7 @@ class Quick_Rest_Response_Http
     protected $_contentFile = false;
     protected $_values = array();
     protected $_collections = array();
+    protected $_isOutput = false;               // set once output has been started, for appendContent
 
     public function setCli( $yesno ) {
         $this->_cli = $yesno ? 'cli' : 'http';
@@ -67,7 +68,10 @@ class Quick_Rest_Response_Http
     }
 
     public function appendContent( $str ) {
-        $this->_content .= $str;
+        // if output has already been started, emit the appended value, else gather
+        // note: do not gather once output started to support arbitrarily large streaming responses
+        if ($this->_isOutput) $this->_emitExtra($str);
+        else $this->_content .= $str;
     }
 
     public function setContentFile( $filename ) {
@@ -136,6 +140,8 @@ class Quick_Rest_Response_Http
         $this->_emitHeaders();
         $this->_emitContent();
         $this->_emitValues();
+        $this->_isOutput = true;
+        return $this;
     }
 
     public function getResponse( $includeHeaders = false ) {
@@ -189,6 +195,10 @@ class Quick_Rest_Response_Http
             if ($this->_values && $last !== "\n")
                 echo "\n";
         }
+    }
+
+    protected function _emitExtra( $str ) {
+        echo $str;
     }
 
     protected function _emitValues( ) {
