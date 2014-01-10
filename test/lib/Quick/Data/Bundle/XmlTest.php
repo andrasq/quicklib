@@ -46,6 +46,30 @@ class Quick_Data_Bundle_XmlTest
         $this->assertEquals($expect, $this->_getXmlArray());
     }
 
+    public function testSetListItemNameShouldChangeListItemNames( ) {
+        $this->_cut->withSeparator('.')->push('envelope.a.b.c', 1);
+        $this->_cut->withSeparator('.')->push('envelope.a.b.c', 2);
+        $this->_cut->withSeparator('.')->setListItemName('envelope.a.b.c', 'item');
+        $xml = (string)$this->_cut;
+        $this->assertContains("<item>1</item>", $xml);
+        $this->assertContains("<item>2</item>", $xml);
+        $this->assertEquals(array('a' => array('b' => array('c' => array('item' => array(1, 2))))), $this->_getXmlArray($xml));
+    }
+
+    public function testXmlTagsShouldAllowAttributesAfterASpace( ) {
+        $this->_cut->set('name p1="1" p2="2"', 'value');
+        $xml = (string) $this->_cut;
+        $this->assertEquals(array('name' => 'value'), $this->_getXmlArray($xml));
+        $this->assertContains('<name p1="1" p2="2">', $xml);
+        $this->assertContains('</name>', $xml);
+    }
+
+    public function testXmlShouldEscapeHtmlSpecialCharsButLeaveAttributeQuotesInPlace( ) {
+        $this->_cut->set('a.b ns:p="1"', "&<>;'\"");
+        $xml = (string) $this->_cut;
+        $this->assertContains('<a.b ns:p="1">&amp;&lt;&gt;;\'&quot;</a.b>', $xml);
+    }
+
     public function testToStringShouldStripControlChars( ) {
         $this->_cut->set('a', "one\x01");
         $this->assertContains("<a>one</a>", (string)$this->_cut);

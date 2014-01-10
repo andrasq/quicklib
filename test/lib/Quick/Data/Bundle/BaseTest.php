@@ -155,6 +155,13 @@ class Quick_Data_Bundle_BaseTest
         // 345k/sec depth 5, 440k/sec d 3
         echo $timer->timeit(100000, "set sep a.b.c.d.e = 1", array($this, '_testSetWithSeparatorDepth5'), array($cut2));
         // 250k/sec depth 5, 285k/sec depth 3 ...wth?? 307k/sec d3 if already cloned??
+
+        //$cut3 = new Quick_Data_Bundle_Xml();
+        $cut3 = new Quick_Data_Bundle_Json();
+        $cut3->withSeparator('.')->set('a.b.c', array(1,2,3));
+        $cut3->withSeparator('.')->setListItemName('a.b.c', 'x');
+        echo $timer->timeit(100000, "emit a.b.c = [1,2,3]", array($this, '_testSpeedEmit'), array($cut3));
+        // 840k/sec json, 57k/sec php, 35k/s xml, 31k/s named items
     }
 
     public function _testNull( $cut ) {
@@ -174,5 +181,9 @@ class Quick_Data_Bundle_BaseTest
 
     public function _testSetWithSeparatorDepth5( $cut ) {
         $cut->withSeparator('.')->set('a.b.c.d.e', 1);
+    }
+
+    public function _testSpeedEmit( $cut ) {
+        return (string) $cut;
     }
 }
