@@ -1,5 +1,10 @@
 <?
 
+/**
+ * Copyright (C) 2013-2014 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
 class Quick_Rest_Call_HttpExposer
     extends Quick_Rest_Call_Http
 {
@@ -191,6 +196,31 @@ class Quick_Rest_Call_HttpTest
         $this->assertContains('Header2: 222', $message);
     }
 
+    public function testGetReplyShouldReturnReplyBody( ) {
+        $this->_cut->setParam('a', uniqid());
+        $message = $this->_runCall();
+        $this->assertEquals($this->_cut->getReply(), $message);
+    }
+
+    public function testGetReplyFileShouldReturnSetReplyFile( ) {
+        $this->_cut->setReplyFile($filename = uniqid());
+        $this->assertEquals($filename, $this->_cut->getReplyFile());
+    }
+
+    public function testGetReplyFileShouldReturnTempfile( ) {
+        $this->_cut->setReplyFile(new Quick_Test_Tempfile());
+        $this->_runCall();
+        $this->assertType('Quick_Data_Tempfile', $this->_cut->getReplyFile());
+    }
+
+    public function testGetReplyFileShouldReturnFileContainingReplyBody( ) {
+        $this->_cut->setParam('a', uniqid());
+        $this->_cut->setReplyFile(new Quick_Test_Tempfile());
+        $message = $this->_runCall();
+        $filename = $this->_cut->getReplyFile();
+        $this->assertEquals($message, file_get_contents($filename));
+    }
+
     public function testGetRequestShouldPassArrayParametersInQuery( ) {
         $this->_cut->setParam('a', 11);
         $this->_cut->setParam('b', 22);
@@ -266,7 +296,7 @@ class Quick_Rest_Call_HttpTest
         //if (file_exists("/bin/nc")) $echo = new Quick_Proc_Process("exec nc -l 12345 > $tempfile 2>&1 ; cat $tempfile");
         //if (file_exists("/bin/nc")) $echo = new Quick_Proc_Process("exec nc -l 12345 > /tmp/ar.out 2>&1 ; cat /tmp/ar.out");
         //usleep(150000);
-        $reply = $this->_cut->call();
+        $this->_cut->call();
         $output = $echo->getOutput(1);
         return $output;
     }

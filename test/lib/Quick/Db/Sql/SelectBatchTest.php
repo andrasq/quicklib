@@ -6,7 +6,7 @@ class Quick_Db_Sql_SelectBatchTest
     public function setUp( ) {
         global $phpunitDbCreds;
         $this->_db = $this->getTestDb();
-        $this->_db->execute("CREATE TEMPORARY TABLE __test (k int PRIMARY KEY AUTO_INCREMENT, v varchar(40))");
+        $this->_db->execute("CREATE TEMPORARY TABLE __test (k int PRIMARY KEY AUTO_INCREMENT, v varchar(40)) ENGINE=MyISAM");
         $this->_cut = new Quick_Db_Sql_SelectBatch($this->_db, "SELECT k, v FROM __test", "", "__test", "k", 1);
     }
 

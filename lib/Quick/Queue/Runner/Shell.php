@@ -160,7 +160,11 @@ class Quick_Queue_Runner_Shell
             $doneSlots = array();
             foreach ($procs as $slot => $proc) {
                 if ($line = $proc->getOutput()) {
-                    if ($line !== "<ok>\n") throw new Quick_Queue_Exception("unexpected response from shell job: $line");
+                    if ($line !== "<ok>\n") {
+                        // @FIXME: should not die, should return RUN_ERROR status instead
+                        // throw new Quick_Queue_Exception("unexpected response from shell job: $line");
+                        file_put_contents($proc->outputFile, $line, FILE_APPEND);
+                    }
                     $this->_doneProcs[$jobtype][] = $proc;
                     $doneSlots[] = $slot;
                 }

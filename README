@@ -1,9 +1,9 @@
 quicklib
 ========
 
-Quicklib PHP Toolkit, Version 0.17
+Quicklib PHP Toolkit, Version 0.19
 
-Copyright (C) 2013 Andras Radics
+Copyright (C) 2013-2014 Andras Radics
 Licensed under the Apache License, Version 2.0
 
 This is a toolkit of utilities I started writing while thinking about ways

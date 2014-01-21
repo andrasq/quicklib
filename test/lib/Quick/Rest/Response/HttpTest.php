@@ -63,6 +63,18 @@ class Quick_Rest_Response_HttpTest
         $this->assertContains($u2, $output2);
     }
 
+    public function testGetValuesShouldReturnAllValues( ) {
+        $this->_cut->setValue('a', 1);
+        $this->_cut->setValue('b', 2);
+        $this->assertEquals(array('a' => 1, 'b' => 2), $this->_cut->getValues());
+    }
+
+    public function testGetValueShouldReturnNamedValue( ) {
+        $this->_cut->setValue('a', 1);
+        $this->_cut->setValue('b', 2);
+        $this->assertEquals(2, $this->_cut->getValue('b'));
+    }
+
     public function testGetResponseShouldReturnEmittedOutput( ) {
         $this->_cut->setValue('a', 1);
         $this->_cut->setContent("test");
@@ -148,6 +160,12 @@ class Quick_Rest_Response_HttpTest
         $this->_cut->setValue("a.items.", 3, ".");
         $ret = $this->_cut->getResponse();
         $this->assertEquals(array('a' => array('items' => array('0' => 1, '1' => 2, '2' => 3))), json_decode($ret, true));
+    }
+
+    public function testSetValuesShouldSetMultipleValues( ) {
+        $this->_cut->setValues(array('a' => 1, 'b' => 2, 'c' => 3));
+        $this->assertEquals(2, $this->_cut->getValue('b'));
+        $this->assertEquals(3, $this->_cut->getValue('c'));
     }
 
     public function testUnsetValuesEmptiesValuesAndEmitsOnlyStringContent( ) {

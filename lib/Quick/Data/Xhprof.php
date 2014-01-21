@@ -91,9 +91,9 @@ class Quick_Data_Xhprof
     protected function _findExclusiveProfile( ) {
         $d = array();
         foreach ($this->_profile_data as $fn => $info) {
-            list($caller, $callee) = explode('==>', $fn);
-            list($caller, $caller_depth) = explode('@', $caller);
-            list($callee, $callee_depth) = explode('@', $callee);
+            @list($caller, $callee) = explode('==>', $fn);
+            @list($caller, $caller_depth) = explode('@', $caller);
+            @list($callee, $callee_depth) = explode('@', $callee);
             if (!$callee) { $child = $caller; $parent = ''; }
             else { $parent = $caller; $child = $callee; }
 
@@ -126,6 +126,7 @@ class Quick_Data_Xhprof
 
     protected function _findDisplayStats( $data ) {
         $ret = array();
+        $tot_elapsed = $tot_cpu = $tot_memory = 0;
         foreach ($data as $d) {
             $tot_elapsed += $d['wtx'];
             $tot_cpu += $d['cpux'];
@@ -199,6 +200,7 @@ class Quick_Data_Xhprof
         // canonical unix prof sorts by descending per-function elapsed time
         usort($data, create_function('$d1, $d2', 'return ($d1["elapsed_self"] - $d2["elapsed_self"]) < 0 ? 1 : -1;'));
 
+        $max_fract_cpu = 0;
         foreach ($data as $d) {
             $max_cpu_self = max($max_fract_cpu, $d['cpu_self']);
         }
@@ -278,9 +280,13 @@ class Quick_Data_Xhprof
     }
 
     protected function _assembleDisplayStats( $data ) {
+        $widths = array();
         foreach ($data as $row => $rowdata) {
             foreach ($rowdata as $col => $value) {
-                $widths[$col] = max(strlen($value), $widths[$col]);
+                if (isset($widths[$col]))
+                    $widths[$col] = max(strlen($value), $widths[$col]);
+                else
+                    $widths[$col] = strlen($value);
             }
         }
         foreach ($data as $row => $rowdata) {

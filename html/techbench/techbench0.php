@@ -31,11 +31,28 @@ if (!defined('QUICKLIB_DIR'))
 // Note: apache is 20% slower if passed index.php/json, using index.php?op=json instead
 $GLOBALS['_SERVER']['PATH_INFO'] = "/{$_GET['op']}";
 
-if (!class_exists('Quick_Autoloader', false))
-    require QUICKLIB_DIR . '/Quick/Autoloader.php';
-Quick_Autoloader::getInstance()
-    ->addSearchTree(QUICKLIB_DIR, ".php")
-    ->install();
+if (1) {
+    // this is the general-purpose, handles-all-cases autoloader (optimized for trees) (11700/s)
+    if (!class_exists('Quick_Autoloader', false))
+        require QUICKLIB_DIR . '/Quick/Autoloader.php';
+    Quick_Autoloader::getInstance()
+        ->addSearchTree(QUICKLIB_DIR, ".php")
+        ->install();
+}
+elseif (1) {
+    // 5% slower than __autoload, but 15% faster than the full-featured autoloader (13500/s)
+    if (!class_exists('Quick_Autoloader_QuickLoader', false))
+        require QUICKLIB_DIR . '/Quick/Autoloader/QuickLoader.php';
+    $al = new Quick_Autoloader_QuickLoader(QUICKLIB_DIR);
+    $al->register();
+}
+else {
+    // __autoload is faster than require_once, and much faster than any multi-dir autoloader
+    // using a primitive autoloader speeds up this test by 25% (14650/s; 2.5% for taskset 1)
+    function __autoload( $classname ) {
+        require QUICKLIB_DIR . '/' . str_replace('_', '/', $classname) . ".php";
+    }
+}
 
 $request = new Quick_Rest_Request_Http();
 $response = new Quick_Rest_Response_Http();

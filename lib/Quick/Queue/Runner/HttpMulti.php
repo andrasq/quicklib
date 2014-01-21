@@ -71,7 +71,7 @@ class Quick_Queue_Runner_HttpMulti
             foreach ($this->_ch as $jobKey => $ch) {
 // FIXME: act on isError!
                 $output = curl_multi_getcontent($ch);
-                if (curl_getinfo($ch, CURLINFO_HTTP_CODE) >= 300) {
+                if (($code = curl_getinfo($ch, CURLINFO_HTTP_CODE)) < 200 || $code >= 300) {
                     $results[$jobKey] = array(
                         'status' => Quick_Queue_Runner::RUN_ERROR,
                         'runtime' => $runtime,

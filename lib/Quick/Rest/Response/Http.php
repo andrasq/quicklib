@@ -97,6 +97,16 @@ class Quick_Rest_Response_Http
             $this->_setCollectionValue($this->_values, $name, $value, $separator);
     }
 
+    public function setValues( Array $namevals ) {
+        foreach ($namevals as $k => $v) {
+            $this->_values[$k] = $v;
+        }
+    }
+
+    public function getValues( ) {
+        return $this->_values;
+    }
+
     public function getValue( $name ) {
         // FIXME: also return values from collection
         return isset($this->_values[$name]) ? $this->_values[$name] : null;
@@ -189,7 +199,7 @@ class Quick_Rest_Response_Http
                 echo $this->_content;
                 $last = substr($this->_content, -1);
             }
-            if ($this->_contentFile) {
+            if ($this->_contentFile > "") {
                 $last = $this->_emitFile($this->_contentFile);
             }
             if ($this->_values && $last !== "\n")

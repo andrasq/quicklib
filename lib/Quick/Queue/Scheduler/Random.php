@@ -26,6 +26,8 @@ class Quick_Queue_Scheduler_Random
         $this->_store = $store;
         $this->_queueConfig = $queueConfig;
         $this->_config = & $queueConfig->shareConfig();
+
+        // ensure that all expected configs are present
         $knownConfigs = array(
             'batchsize' => 1,
             'batchlimit' => 1,
@@ -35,6 +37,8 @@ class Quick_Queue_Scheduler_Random
             if ($queueConfig->get($name, '__default') === null)
                 $queueConfig->set($name, '__default', $default);
         }
+
+        // program the jobtype refresh frequency; built-in default is after .05 seconds
         //$this->setJoblistRefreshValue(new Quick_Data_AdaptiveValue_SlidingWindow(.004, .001, 10.000, -.01, 2));
         $this->setJoblistRefreshValue(new Quick_Data_AdaptiveValue_Constant(.05));
     }

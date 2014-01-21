@@ -214,6 +214,8 @@ class Quick_Queue_Store_FileDirectory
         else {
             // @FIXME: garbage collect fifos, keep a finite LRU list instead of caching all
             // if (count($this->_fifos) > 200) $this->_fifos = array_slice($this->_fifos, 0, 100);
+            // @FIXME: only cache a few fifos, and preferentially schedule those jobs,
+            // to allow a second queue to run to handle other jobtypes.
             $fifo = new Quick_Fifo_FileReader($this->_store->getFilename($jobtype));
             return $this->_fifos[$jobtype] = $fifo->open();
         }

@@ -1,9 +1,10 @@
 <?php
 
 /**
- * Simple little autoloader.
+ * General-purpose autoloader.
+ * A long time and many features ago it was simple and little.
  *
- * Copyright (C) 2013 Andras Radics
+ * Copyright (C) 2013-2014 Andras Radics
  * Licensed under the Apache License, Version 2.0
  *
  * 2013-02-09 - AR.
@@ -20,9 +21,9 @@ class Quick_Autoloader_Engine
     }
 
     public static function getInstance( ) {
-        global $__global_mb_autoloader;
+        global $__global_qk_autoloader;
         static $instance;
-        if (isset($__global_mb_autoloader)) return $__global_mb_autoloader;
+        if (isset($__global_qk_autoloader)) return $__global_qk_autoloader;
         return $instance ? $instance : $instance = new Quick_Autoloader_Engine();
     }
 
@@ -66,28 +67,19 @@ class Quick_Autoloader_Engine
             return true;
         }
         else {
+            // php strips a leading \ from namespaced classnames before autoloading
             // optimize for the case of _ separated components in a directory tree
+            $classpath = '/' . str_replace('_', '/', str_replace('\\', '/', $classname));
             foreach ($this->_trees as $info) {
-                if (file_exists($classpath = $info[0] . '/' . str_replace('_', '/', $classname) . $info[1])) {
-                    // note: the only reason to test for class_exists here is for testing/timing
-                    // note: require_once is 20% slower... so avoid duplicating names with different extensions!
-                    require $classpath;
-                    if (class_exists($classname, false) || interface_exists($classname, false)) return true;
+                // cannot @include, it suppresses php parse errors too
+                if (file_exists($fn = $info[0] . $classpath . $info[1])) {
+                    include $fn;
+                    break;
                 }
             }
+            if (class_exists($classname, false) || interface_exists($classname, false)) return true;
 
             // if the fast path did not find a match, try the slow ones
-            foreach ($this->_trees as $info) {
-                list($dir, $ext) = $info;
-                $classpath = $dir . '/' . str_replace(array('::', '_', '\\'), '/', $classname) . $ext;
-                if (file_exists($classpath)) {
-                    if (!class_exists($classname, false) && !interface_exists($classname)) {
-                        require $classpath;
-                    }
-                    if (class_exists($classname, false) || interface_exists($classname, false))
-                        return true;
-                }
-            }
 
             if ($this->_nodes)
             foreach ($this->_nodes as $node) {

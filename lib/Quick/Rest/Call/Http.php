@@ -4,7 +4,7 @@
  * Http protocol REST caller.
  * Basically wrappers curl_exec.
  *
- * Copyright (C) 2013 Andras Radics
+ * Copyright (C) 2013-2014 Andras Radics
  * Licensed under the Apache License, Version 2.0
  */
 
@@ -18,7 +18,9 @@ class Quick_Rest_Call_Http
     protected $_timeout = 600;
     protected $_connectTimeout = 5.0;
     protected $_headers = array();
-    protected $_config = array();
+    protected $_curlConfig = array();
+    protected $_curlinfo;
+    protected $_replyFile = false;
 
     public function __construct( $url = null, $method = 'GET', $methodArg = null ) {
         if ($url !== null) $this->setUrl($url);
@@ -27,6 +29,11 @@ class Quick_Rest_Call_Http
 
     public function setProfiling( Quick_Data_Datalogger $profiler = null ) {
         $this->_profiler = $profiler;
+        return $this;
+    }
+
+    public function setReplyFile( $file ) {
+        $this->_replyFile = $file;
         return $this;
     }
 
@@ -80,6 +87,7 @@ class Quick_Rest_Call_Http
     }
 
     public function call( ) {
+        $this->_reply = null;
         switch ($this->_method) {
         case 'SCRIPT':
             if (!$this->_methodArg) throw new Quick_Rest_Exception("SCRIPT call has no script runner defined");
@@ -88,6 +96,7 @@ class Quick_Rest_Call_Http
             $call->setUrl($this->_url);
             $call->setParams($this->_params);
             $this->_reply = $call->call();
+            if ($this->_replyFile) file_put_contents($this->_replyFile, $this->_reply);
             break;
         case 'GET':
         case 'POST':
@@ -97,7 +106,7 @@ class Quick_Rest_Call_Http
         case 'DELETE':
         case 'HEAD':
         case 'UPLOAD':
-            $this->_reply = $this->_runCall($this->_method, $this->_url, $this->_params);
+            $this->_runCall($this->_method, $this->_url, $this->_params);
             break;
         default:
             throw new Quick_Rest_Exception("$this->_method: unsupported http call method");
@@ -107,11 +116,55 @@ class Quick_Rest_Call_Http
     }
 
     public function getReply( Quick_Rest_Reply $reply = null ) {
-        return $this->_reply;
+        if ($this->_replyFile)
+            return file_get_contents($this->_replyFile);
+        elseif ($this->_reply !== false && $this->_reply !== null)
+            return $this->_reply;
+    }
+
+    public function getReplyFile( ) {
+        return $this->_replyFile;
+    }
+
+    public function getHeaderSize( ) {
+        // proxy servers can add header lines, so cannot rely on _curlinfo['header_size']
+        if ($this->_replyFile) {
+            clearstatcache();
+            $size = filesize($this->_replyFile);
+            return ($size - $this->_curlinfo['download_content_length']);
+        }
+        elseif ($this->_reply) {
+            // @NOTE: mb_str overloading will break strlen and substr
+            $len = strlen($this->_reply);
+            return $len - $this->_curlinfo['download_content_length'];
+        }
+    }
+
+    public function getReplyHeader( ) {
+        if ($this->_replyFile) {
+            return file_get_contents($this->_replyFile, false, NULL, 0, $this->getHeaderSize());
+        }
+        elseif ($this->_reply) {
+            // @NOTE: mb_str overloading will break strlen and substr
+            return substr($this->_reply, 0, -$this->_curlinfo['download_content_length']);
+        }
+    }
+
+    // synthesize a header to match the body
+    protected function _makeHeaderForReplyData( ) {
+        $date = date("D, d M Y H:i:s T");
+        $header =
+"HTTP/1.1 {$this->_curlinfo['http_code']} -\r
+Date: $date\r
+Content-Length: {$this->_curlinfo['download_content_length']}\r
+Content-Type: {$this->_curlinfo['content_type']}\r
+X-Synthesized-By: Rest_Call_Http\r
+\r"
+        ;
     }
 
     public function setCurlConfig( $name, $value ) {
-        $this->_config[$name] = $value;
+        $this->_curlConfig[$name] = $value;
         return $this;
     }
 
@@ -121,14 +174,14 @@ class Quick_Rest_Call_Http
 
         $ch = curl_init($url);
         curl_setopt_array($ch, array(
-            //CURLOPT_FOLLOWLOCATION => true,   // implement ourselves to keep headers clean
             CURLOPT_BINARYTRANSFER => true,
             CURLOPT_HEADER => true,
-            CURLOPT_RETURNTRANSFER => true,
             //CURLOPT_TIMEOUT => $this->_timeout,
             CURLOPT_CONNECTTIMEOUT_MS => 1000 * $this->_connectTimeout,
+            CURLOPT_FOLLOWLOCATION => (bool)$this->_replyFile,
+            CURLOPT_RETURNTRANSFER => !$this->_replyFile,
         ));
-        if ($this->_config) curl_setopt_array($ch, $this->_config);
+        if ($this->_curlConfig) curl_setopt_array($ch, $this->_curlConfig);
 
         // each set of CURLOPT_HTTPHEADERS unsets the previous, so send all headers together
         $headers = $this->_headers;
@@ -176,12 +229,14 @@ class Quick_Rest_Call_Http
 
         if ($headers) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-        $reply = $this->_curlExec($ch, 10);
+        if ($this->_replyFile) ob_start(array($this, '_appendReplyFile'), 20480);
+        $this->_reply = $this->_curlExec($ch, 10);
+        if ($this->_replyFile) ob_end_flush();
 
-        if (curl_errno($ch))
+        if ($this->_reply === false)
             throw new Quick_Rest_Exception("rest error calling $this->_url: " . curl_error($ch) . " (errno " . curl_errno($ch) . ")");
         curl_close($ch);
-        return $reply;
+        return true;
     }
 
     protected function _curlExec( $ch, $maxRedirects ) {
@@ -195,7 +250,9 @@ class Quick_Rest_Call_Http
                     'http_code' => $info['http_code'],
                     'namelookup_time' => sprintf("%.6f", $info['namelookup_time']),
                     'connect_time' => sprintf("%.6f", $info['connect_time']),
+                    'pretransfer_time' => sprintf("%.6f", $info['pretransfer_time']),
                     'starttransfer_time' => sprintf("%.6f", $info['starttransfer_time']),
+                    'redirect_time' => sprintf("%.6f", $info['redirect_time']),
                     'total_time' => sprintf("%.6f", $info['total_time']),
                     'size_upload' => $info['size_upload'],
                     'speed_upload' => $info['speed_upload'],
@@ -206,6 +263,10 @@ class Quick_Rest_Call_Http
                     'primary_port' => isset($info['primary_port']) ? $info['primary_port'] : '',
                 ));
             }
+            // curl_exec returns false on error, true if sent output to stdout
+            if ($reply === false) return false;
+            if ($reply === true) $reply = "";
+            $this->_curlinfo = & $info;
             $status = isset($info['http_code']) ? $info['http_code'] : 0;
             // if redirected with MovedPermanently (301) or Found (302), try the new location
             if ($status != 301 && $status != 302) {
@@ -228,5 +289,10 @@ class Quick_Rest_Call_Http
             ((strpos($url, '?') === false) ? '?' : '&') .
             (is_array($params) ? http_build_query($params) : $params);
         return $url;
+    }
+
+    // callback to chunk and save curl reply, for large streaming datasets
+    public function _appendReplyFile( $buf ) {
+        file_put_contents($this->_replyFile, $buf, FILE_APPEND);
     }
 }

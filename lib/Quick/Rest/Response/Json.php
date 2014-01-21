@@ -15,9 +15,14 @@ class Quick_Rest_Response_Json
     protected function _emitValues( ) {
         // null values suppresses values output
         if ($this->_values === null) return;
+
         echo $json = json_encode($this->_values);
-        if ($json === null)
-            // json_encode breaks on non-utf8 strings; should fix the encoding and try again
-            throw new Quick_Rest_Exception("unable to json_encode response: " . print_r($this->_values, true));
+        if ($json !== null) return;
+
+        // json_encode breaks on non-utf8 strings; brute force encode everything and try again
+        echo $json = json_encode(array_walk_recursive($this->_values, array($this, 'utf8_encode')));
+        if ($json !== null) return;
+
+        throw new Quick_Rest_Exception("unable to json_encode response: " . print_r($this->_values, true));
     }
 }

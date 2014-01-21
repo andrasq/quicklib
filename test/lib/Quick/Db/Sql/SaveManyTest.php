@@ -10,7 +10,7 @@ class Quick_Db_Sql_SaveManyTest
 {
     public function setUp( ) {
         $this->_db = $this->getTestDb();
-        $this->_db->execute("CREATE TEMPORARY TABLE IF NOT EXISTS keyval (id int primary key auto_increment, val int)");
+        $this->_db->execute("CREATE TEMPORARY TABLE IF NOT EXISTS keyval (id int primary key auto_increment, val int) ENGINE=MyISAM");
         $this->_cut = new Quick_Db_Sql_SaveMany($this->_db, "keyval", "id");
     }
 

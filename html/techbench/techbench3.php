@@ -25,7 +25,7 @@ Transfer/sec:      4.19MB
  */
 
 if (!defined('QUICKLIB_DIR'))
-    define('QUICKLIB_DIR', dirname(realpath(__FILE__)) . "/../../lib");
+    define('QUICKLIB_DIR', __DIR__ . "/../../lib");
 
 function __autoload( $classname ) {
     require QUICKLIB_DIR . '/' . str_replace('_', '/', $classname) . ".php";
@@ -45,7 +45,7 @@ switch ($request->getParam('op')) {
         break;
 
     case 'db':
-        // mysql: 7500/sec, mysqli: 6500/sec
+        // mysql: 8200/sec, mysqli: 7500/sec
         //$link = mysqli_connect("p:localhost", "andras", null);
         //$db = new Quick_Db_Mysqli_Db($link, new Quick_Db_Mysqli_Adapter($link));
         $link = mysql_pconnect("localhost", "andras", null);
@@ -53,6 +53,9 @@ switch ($request->getParam('op')) {
         $rs = $db->select("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000))->asHash();
         $response->setContent(json_encode($rs->fetch()));
         $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
+        // Quick_Db without controller: 9200/s
+        // raw mysql: 10000/s
+        // raw mysql w/o controller: 18100/s
         break;
 
     case 'queries':
@@ -63,6 +66,10 @@ switch ($request->getParam('op')) {
         // $ret = array_map('fetch_random_row', array_fill(0, $queries, $db));
         while (--$queries >= 0) {
             $ret[] = $db->select("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000))->asHash()->fetch();
+            // Quick_Db: 8200/sec
+            // $rs = mysql_query("SELECT id, randomNumber FROM test.World WHERE id = " . mt_rand(1, 10000), $link);
+            // $ret[] = mysql_fetch_assoc($rs);
+            // raw mysql: 10000/sec (22% faster)
         }
         $response->setContent(json_encode($ret));
         $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
@@ -81,6 +88,7 @@ switch ($request->getParam('op')) {
             $obj->randomNumber = mt_rand(1, 10000);
         }
         // nb: order the rows to avoid innodb deadlocks
+        // also nb: in most cases myisam has higher throughput than innodb
         ksort($ret);
         foreach ($ret as $obj) $namevals[] = "($obj->id, $obj->randomNumber)";
         $dataSql = implode(", ", $namevals);
@@ -94,6 +102,10 @@ switch ($request->getParam('op')) {
         $updateSql = "UPDATE test.World w JOIN ($dataSql) t USING(id) SET w.randomNumber = t.randomNumber";
         $db->execute($updateSql);
 **/
+        // NOTE: MyISAM is *much* quicker near-idle! but at high loads InnoDB has an edge
+        // -t1 -c4: 1200/s My, 210/s In; -t1 -c1: 460/s My, 110/s In
+        // -t3 -c66 -d10s: 850/s MyISAM, 970/s InnoDB
+        // -t4 -c256 -d10s: 790/s MyISAM, 850/s InnoDB
         $response->setContent(json_encode($ret));
         $response->setHttpHeader("Content-Type", "application/json; charset=\"UTF-8\"");
         break;

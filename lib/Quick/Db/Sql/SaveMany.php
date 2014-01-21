@@ -115,7 +115,7 @@ class Quick_Db_Sql_SaveMany
     }
 
     // remove and return those items that have their primary keys set.  Modifies $items.
-    protected function _removeItemsWithPrimaryKeys( Array & $items ) {
+    protected function & _removeItemsWithPrimaryKeys( Array & $items ) {
         $key = $this->_getPrimaryKey();
         if (is_array($key)) throw new Quick_Db_Exception("composite keys not supported yet");
 
@@ -123,10 +123,15 @@ class Quick_Db_Sql_SaveMany
         foreach ($items as $k => $v) {
             // mysql treats null, '0', '0.0' and blank keys as not set
             if (isset($v[$key])) {
-                $keyed[$k] = $v;
+                $keyed[$v[$key]] = $v;
                 unset($items[$k]);
             }
         }
+
+        // batch updates using INSERT ... UPDATE into InnoDB tables can deadlock,
+        // and ORDER BY is not supported.  Order the VALUES here instead.
+        ksort($keyed);
+
         return $keyed;
     }
 
