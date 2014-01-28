@@ -64,6 +64,23 @@ class Quick_Rest_Call_Script
         return $this->_reply;
     }
 
+    public function getReplyHeader( ) {
+        return "";
+    }
+
+    public function getContentOffset( ) {
+        return 0;
+    }
+
+    public function getContentLength( ) {
+        return strlen($this->_reply);
+    }
+
+    public function getContentFile( $filename ) {
+        $nb = file_put_contents($filename, $this->_reply);
+        if ($nb === false) throw new Quick_Rest_Exception("$filename: error writing file");
+        return $this;
+    }
 
     // run php script by including it, without forking
     protected function & _runScript( Array $argv ) {

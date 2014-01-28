@@ -34,10 +34,12 @@ function __autoload( $classname ) {
 $request = new Quick_Rest_Request_Http();
 $response = new Quick_Rest_Response_Http();
 
-$request->setParamsFromGlobals($GLOBALS);
+//$request->setParamsFromGlobals($GLOBALS);
 //if (PHP_SAPI === 'cli') $response->setCli(true);
 
-switch ($request->getParam('op')) {
+//switch ($request->getParam('op'))
+switch ($GLOBALS['_REQUEST']['op'])
+{
     case 'json':
         $msg = json_encode(array('message' => "Hello, World!"));
         $response->setContent($msg);
@@ -59,6 +61,7 @@ switch ($request->getParam('op')) {
         break;
 
     case 'queries':
+        $request->setParamsFromGlobals($GLOBALS);
         $queries = $request->getParam('queries');
         if ($queries < 1 || $queries > 500) $queries = 1;
         $link = mysql_pconnect("localhost", "andras", null);
@@ -76,6 +79,7 @@ switch ($request->getParam('op')) {
         break;
 
     case 'updates':
+        $request->setParamsFromGlobals($GLOBALS);
         $queries = $request->getParam('queries');
         if ($queries < 1 || $queries > 500) $queries = 1;
         $link = mysql_pconnect("localhost", "andras", null);

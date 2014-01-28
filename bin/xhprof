@@ -44,7 +44,7 @@ $prof->profileTime();
 $prof->startProfiling();
 
 $_SERVER['argv'] = $argv;
-$_SERVER['argc'] = count($argv);
+$_SERVER['argc'] = $argc = count($argv);
 include $argv[0];
 
 $prof->stopProfiling();

@@ -81,24 +81,33 @@ class Quick_Rest_Call_CurlMulti
 
             if ($info = $this->_curl_multi_info_read($mh)) {
                 // as soon as the window has an open slot, start another call.
-                // A rolling window yields up to 34% higher throughput than a paged window.
+                // A rolling window yields as much as 34% higher throughput than a paged window.
                 do {
                     $ch = $this->_chDone[] = $info['handle'];
                     $this->_curl_multi_remove_handle($mh, $ch);
-                    if ($ch = array_pop($this->_ch)) $this->_curl_multi_add_handle($mh, $ch);
-                    else --$this->_runningCount;
+                    if ($ch = array_pop($this->_ch))
+                        $this->_curl_multi_add_handle($mh, $ch);
+                    else
+                        --$this->_runningCount;
                     $info = $this->_curl_multi_info_read($mh);
                 } while ($info);
 
-                // adding an exec here is 7% faster (fewer context switches)
+                // another exec here raises throughput 7% (fewer context switches)
                 $rv = $this->_curl_multi_exec($mh, $running);
-                if ($rv !== CURLM_OK) throw new Quick_Rest_Exception("curl_multi_exec error");
+                if ($rv !== CURLM_OK && $rv !== CURLM_CALL_MULTI_PERFORM)
+                    throw new Quick_Rest_Exception("curl_multi_exec error");
+            }
+            elseif (!$running) {
+                // a ch added to two multis will never run, exec returns CURLM_OK and $running = 0
+                $done = true;
+                break;
             }
             else {
                 // wait for some calls to finish to be able to start more
                 // nb: while blocked linux may migrate the process to another core,
                 // losing 15% of overall performance (cold cache on new cpu)
-                usleep(10);
+                if ($timeout)
+                    usleep(10);
             }
 
             $done = (!$this->_ch && !$this->_runningCount);

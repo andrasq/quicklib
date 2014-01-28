@@ -31,7 +31,7 @@ if (!defined('QUICKLIB_DIR'))
 // Note: apache is 20% slower if passed index.php/json, using index.php?op=json instead
 $GLOBALS['_SERVER']['PATH_INFO'] = "/{$_GET['op']}";
 
-if (1) {
+if (0) {
     // this is the general-purpose, handles-all-cases autoloader (optimized for trees) (11700/s)
     if (!class_exists('Quick_Autoloader', false))
         require QUICKLIB_DIR . '/Quick/Autoloader.php';
@@ -39,7 +39,7 @@ if (1) {
         ->addSearchTree(QUICKLIB_DIR, ".php")
         ->install();
 }
-elseif (1) {
+elseif (0) {
     // 5% slower than __autoload, but 15% faster than the full-featured autoloader (13500/s)
     if (!class_exists('Quick_Autoloader_QuickLoader', false))
         require QUICKLIB_DIR . '/Quick/Autoloader/QuickLoader.php';

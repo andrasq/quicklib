@@ -16,15 +16,16 @@ class Quick_Data_Tempfile
     protected $_filename;
 
     public function __construct( $dir = "/tmp", $prefix = "qtemp-" ) {
-	$this->_filename = tempnam($dir, $prefix);
+        // note: tempnam() will use /tmp if $dir is not writable!
+        $this->_filename = tempnam($dir, $prefix);
     }
 
     public function __destruct( ) {
-	@unlink($this->_filename);
+        @unlink($this->_filename);
     }
 
     public function __toString( ) {
-	return $this->_filename;
+        return $this->_filename;
     }
 
     public function getPathname( ) {

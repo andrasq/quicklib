@@ -5,34 +5,6 @@
  * Licensed under the Apache License, Version 2.0
  */
 
-class Quick_Rest_Call_HttpExposer
-    extends Quick_Rest_Call_Http
-{
-    public function getMethod( ) {
-        return $this->_method;
-    }
-
-    public function getMethodArg( ) {
-        return $this->_methodArg;
-    }
-
-    public function getHeaders( ) {
-        return array_map(create_function('$s', 'return substr($s, strpos($s, ": ")+2);'), $this->_headers);
-    }
-
-    public function getParams( ) {
-        return $this->_params;
-    }
-
-    public function getUrl( ) {
-        return $this->_url;
-    }
-
-    public function _appendParamsToUrl( $url, $params ) {
-        return parent::_appendParamsToUrl($url, $params);
-    }
-}
-
 class Quick_Rest_Call_HttpTest
     extends Quick_Test_Case
 {
@@ -50,10 +22,14 @@ class Quick_Rest_Call_HttpTest
     }
 
     public function setUp( ) {
-        $this->_cut = new Quick_Rest_Call_HttpExposer();
+        $this->_cut = $this->_createCut();
         $this->_cut->setUrl('http://localhost:12345/path/to/page.php');
-        $this->_cut->setMethod('GET');
+        $this->_cut->setMethod('POST', 'post=1&postargs=1');
         $this->_echoProc = self::$echoProc;
+    }
+
+    protected function _createCut( ) {
+        return new Quick_Rest_Call_Http();
     }
 
     public function validUrlProvider( ) {
@@ -122,7 +98,7 @@ class Quick_Rest_Call_HttpTest
 
     public function testCallShouldSendMethodToRemote( ) {
         $message = $this->_runCall();
-        $this->assertHeaderContainsString('GET', $message);
+        $this->assertHeaderContainsString('POST', $message);
         $this->_cut->setMethod('Put', TEST_ROOT . "/phpunit");
         $this->_cut->setParam('filename', "phpunit");
         $message = $this->_runCall();
@@ -196,29 +172,44 @@ class Quick_Rest_Call_HttpTest
         $this->assertContains('Header2: 222', $message);
     }
 
-    public function testGetReplyShouldReturnReplyBody( ) {
+    public function testGetReplyShouldReturnReplyWithHeaders( ) {
         $this->_cut->setParam('a', uniqid());
         $message = $this->_runCall();
         $this->assertEquals($this->_cut->getReply(), $message);
+        $this->assertContains("path/to/page", $this->_cut->getReply());
     }
 
-    public function testGetReplyFileShouldReturnSetReplyFile( ) {
-        $this->_cut->setReplyFile($filename = uniqid());
-        $this->assertEquals($filename, $this->_cut->getReplyFile());
+    public function testGetContentOffsetShouldReturnByteOffsetOfBody( ) {
+        $this->_cut->setUrl("http://localhost/index.html");
+        $reply = $this->_runCallHttp();
+        $this->assertEquals(substr($reply, $this->_cut->getContentOffset()), `curl -s -k http://localhost/index.html`);
     }
 
-    public function testGetReplyFileShouldReturnTempfile( ) {
-        $this->_cut->setReplyFile(new Quick_Test_Tempfile());
+    public function testGetContentLengthShouldReturnSizeOfBody( ) {
+        $this->_cut->setUrl("http://localhost/index.html");
+        $reply = $this->_runCallHttp();
+        $this->assertEquals(substr($reply, -$this->_cut->getContentLength()), `curl -s -k http://localhost/index.html`);
+    }
+
+    /**
+     * @expectedException       Quick_Rest_Exception
+     */
+    public function testGetContentFileShouldThrowExceptionIfTargetIsNotWritable( ) {
         $this->_runCall();
-        $this->assertType('Quick_Data_Tempfile', $this->_cut->getReplyFile());
+        $filename = new Quick_Test_Tempfile();
+        chmod($filename, 0);
+        $this->_cut->getContentFile($filename);
     }
 
-    public function testGetReplyFileShouldReturnFileContainingReplyBody( ) {
-        $this->_cut->setParam('a', uniqid());
-        $this->_cut->setReplyFile(new Quick_Test_Tempfile());
-        $message = $this->_runCall();
-        $filename = $this->_cut->getReplyFile();
-        $this->assertEquals($message, file_get_contents($filename));
+    public function testGetContentFileShouldPlaceReplyBodyWithoutHeadersIntoTempfile( ) {
+        $this->_cut->setUrl("http://localhost/index.html");
+        $this->_cut->setMethod('GET', null);
+        $this->_runCallHttp();
+        $outfile = new Quick_Test_Tempfile();
+        $this->_cut->getContentFile($outfile);
+        $contents = file_get_contents($outfile);
+        $this->assertNotContains("Content-Length:", $contents);
+        $this->assertNotContains("HTTP/1:", $contents);
     }
 
     public function testGetRequestShouldPassArrayParametersInQuery( ) {
@@ -291,7 +282,7 @@ class Quick_Rest_Call_HttpTest
     protected function _runCall( ) {
         if (!function_exists('curl_init')) $this->markTestSkipped("curl not available, cannot test");
         $echo = $this->_echoProc;
-        $tempfile = new Quick_Test_Tempfile();
+        //$tempfile = new Quick_Test_Tempfile();
         // use nc if available... @FIXME: can`t get nc to work
         //if (file_exists("/bin/nc")) $echo = new Quick_Proc_Process("exec nc -l 12345 > $tempfile 2>&1 ; cat $tempfile");
         //if (file_exists("/bin/nc")) $echo = new Quick_Proc_Process("exec nc -l 12345 > /tmp/ar.out 2>&1 ; cat /tmp/ar.out");
@@ -299,6 +290,12 @@ class Quick_Rest_Call_HttpTest
         $this->_cut->call();
         $output = $echo->getOutput(1);
         return $output;
+    }
+
+    // make a real http call to the localhost web server
+    protected function _runCallHttp( ) {
+        $this->_cut->call();
+        return $this->_cut->getReply();
     }
 
     protected function assertBodyContainsLine( $expect, $response ) {

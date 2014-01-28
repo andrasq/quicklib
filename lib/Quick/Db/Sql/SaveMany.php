@@ -51,7 +51,7 @@ class Quick_Db_Sql_SaveMany
         // first update the items that already have a primary key
         if ($itemsUpdated) {
             $fields = $this->_findFieldsBeingSaved($itemsUpdated);
-            $update_sql = implode(", ", array_map(create_function('$x', 'return "`$x` = VALUES(`$x`)";'), $fields));
+            $update_sql = implode(", ", array_map(array($this, '_valuesXSql'), $fields));
             $values_sql = "(" . implode(",", array_fill(0, count($fields), '?')) . ")";
             $save_sql = "INSERT INTO $this->_name (`" . implode("`, `", $fields) . "`) " .
                         "VALUES " . implode(", ", array_fill(0, count($itemsUpdated), $values_sql)) .
@@ -95,6 +95,10 @@ class Quick_Db_Sql_SaveMany
         }
     }
 
+
+    protected function _valuesXSql( $x ) {
+        return "`$x` = VALUES(`$x`)";
+    }
 
     protected function _getPrimaryKey( ) {
         return $this->_primaryKey;

@@ -15,4 +15,8 @@ interface Quick_Rest_Call {
     public function setUrl($url);
     public function call();
     public function getReply();
+    public function getReplyHeader();
+    public function getContentOffset();
+    public function getContentLength();
+    public function getContentFile($filename);
 }

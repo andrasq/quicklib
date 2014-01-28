@@ -20,7 +20,6 @@ class Quick_Rest_Call_Http
     protected $_headers = array();
     protected $_curlConfig = array();
     protected $_curlinfo;
-    protected $_replyFile = false;
 
     public function __construct( $url = null, $method = 'GET', $methodArg = null ) {
         if ($url !== null) $this->setUrl($url);
@@ -32,15 +31,18 @@ class Quick_Rest_Call_Http
         return $this;
     }
 
-    public function setReplyFile( $file ) {
-        $this->_replyFile = $file;
-        return $this;
-    }
-
     public function setMethod( $method, $methodArg = null ) {
         $this->_method = strtoupper($method);
         $this->_methodArg = $methodArg;
         return $this;
+    }
+
+    public function getMethod( ) {
+        return $this->_method;
+    }
+
+    public function getMethodArg( ) {
+        return $this->_methodArg;
     }
 
     public function setHeader( $name, $value ) {
@@ -53,6 +55,13 @@ class Quick_Rest_Call_Http
         return substr($this->_headers[$name], strpos($this->_headers[$name], ": ")+2);
     }
 
+    public function getHeaders( ) {
+        $ret = array();
+        foreach ($this->_headers as $k => & $s)
+            $ret[$k] = substr($s, strpos($s, ": ")+2);
+        return $ret;
+    }
+
     public function setParam( $name, $value ) {
         $this->_params[$name] = $value;
         return $this;
@@ -61,6 +70,14 @@ class Quick_Rest_Call_Http
     public function getParam( $name = null ) {
         if ($name === null) return $this->_params;
         return isset($this->_params[$name]) ? $this->_params[$name] : null;
+    }
+
+    public function getParams( ) {
+        return $this->_params;
+    }
+
+    public function getUrl( ) {
+        return $this->_url;
     }
 
     public function setUrl( $url ) {
@@ -96,7 +113,6 @@ class Quick_Rest_Call_Http
             $call->setUrl($this->_url);
             $call->setParams($this->_params);
             $this->_reply = $call->call();
-            if ($this->_replyFile) file_put_contents($this->_replyFile, $this->_reply);
             break;
         case 'GET':
         case 'POST':
@@ -106,7 +122,7 @@ class Quick_Rest_Call_Http
         case 'DELETE':
         case 'HEAD':
         case 'UPLOAD':
-            $this->_runCall($this->_method, $this->_url, $this->_params);
+            $this->_runCall();
             break;
         default:
             throw new Quick_Rest_Exception("$this->_method: unsupported http call method");
@@ -115,52 +131,30 @@ class Quick_Rest_Call_Http
         return $this;
     }
 
-    public function getReply( Quick_Rest_Reply $reply = null ) {
-        if ($this->_replyFile)
-            return file_get_contents($this->_replyFile);
-        elseif ($this->_reply !== false && $this->_reply !== null)
-            return $this->_reply;
-    }
-
-    public function getReplyFile( ) {
-        return $this->_replyFile;
-    }
-
-    public function getHeaderSize( ) {
-        // proxy servers can add header lines, so cannot rely on _curlinfo['header_size']
-        if ($this->_replyFile) {
-            clearstatcache();
-            $size = filesize($this->_replyFile);
-            return ($size - $this->_curlinfo['download_content_length']);
-        }
-        elseif ($this->_reply) {
-            // @NOTE: mb_str overloading will break strlen and substr
-            $len = strlen($this->_reply);
-            return $len - $this->_curlinfo['download_content_length'];
-        }
+    public function getReply( ) {
+        return $this->_reply;
     }
 
     public function getReplyHeader( ) {
-        if ($this->_replyFile) {
-            return file_get_contents($this->_replyFile, false, NULL, 0, $this->getHeaderSize());
-        }
-        elseif ($this->_reply) {
-            // @NOTE: mb_str overloading will break strlen and substr
-            return substr($this->_reply, 0, -$this->_curlinfo['download_content_length']);
-        }
+        // @NOTE: mb_str overloading will break strlen and substr
+        return substr($this->_reply, 0, -$this->getContentOffset());
     }
 
-    // synthesize a header to match the body
-    protected function _makeHeaderForReplyData( ) {
-        $date = date("D, d M Y H:i:s T");
-        $header =
-"HTTP/1.1 {$this->_curlinfo['http_code']} -\r
-Date: $date\r
-Content-Length: {$this->_curlinfo['download_content_length']}\r
-Content-Type: {$this->_curlinfo['content_type']}\r
-X-Synthesized-By: Rest_Call_Http\r
-\r"
-        ;
+    public function getContentOffset( ) {
+        // proxy servers can add header lines, so cannot rely on _curlinfo['header_size']
+        // @NOTE: mb_str overloading will break strlen and substr
+        return strlen($this->_reply) - $this->getContentLength();
+    }
+
+    public function getContentLength( ) {
+        if (($content_length = $this->_curlinfo['download_content_length']) == -1.0)
+            $content_length = $this->_curlinfo['size_download'];
+        return $content_length;
+    }
+
+    public function getContentFile( $filename ) {
+        @$nb = file_put_contents($filename, substr($this->_reply, $this->getContentOffset()));
+        if ($nb === false) throw new Quick_Rest_Exception("$filename: error writing file");
     }
 
     public function setCurlConfig( $name, $value ) {
@@ -168,18 +162,27 @@ X-Synthesized-By: Rest_Call_Http\r
         return $this;
     }
 
-    protected function _runCall( $method, $url, $params ) {
+    protected function _runCall( ) {
+        $ch = $this->_curlConfigure();
+        $this->_reply = $this->_curlRun($ch);
+        curl_close($ch);
+    }
+
+    protected function _curlConfigure( ) {
+        $method = $this->_method;
+        $url = $this->_url;
+        $params = $this->_params;
         if ($params && $method !== 'POST')
             $url = $this->_appendParamsToUrl($url, $params);
 
         $ch = curl_init($url);
         curl_setopt_array($ch, array(
+            //CURLOPT_FOLLOWLOCATION => true,   // implement ourselves to keep headers clean
             CURLOPT_BINARYTRANSFER => true,
             CURLOPT_HEADER => true,
+            CURLOPT_RETURNTRANSFER => true,
             //CURLOPT_TIMEOUT => $this->_timeout,
             CURLOPT_CONNECTTIMEOUT_MS => 1000 * $this->_connectTimeout,
-            CURLOPT_FOLLOWLOCATION => (bool)$this->_replyFile,
-            CURLOPT_RETURNTRANSFER => !$this->_replyFile,
         ));
         if ($this->_curlConfig) curl_setopt_array($ch, $this->_curlConfig);
 
@@ -229,47 +232,33 @@ X-Synthesized-By: Rest_Call_Http\r
 
         if ($headers) curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
 
-        if ($this->_replyFile) ob_start(array($this, '_appendReplyFile'), 20480);
-        $this->_reply = $this->_curlExec($ch, 10);
-        if ($this->_replyFile) ob_end_flush();
-
-        if ($this->_reply === false)
-            throw new Quick_Rest_Exception("rest error calling $this->_url: " . curl_error($ch) . " (errno " . curl_errno($ch) . ")");
-        curl_close($ch);
-        return true;
+        return $ch;
     }
 
-    protected function _curlExec( $ch, $maxRedirects ) {
+    protected function & _curlRun( $ch ) {
+        if (($reply = & $this->_curlExec($ch, 10)) === false)
+            throw new Quick_Rest_Exception("rest error calling $this->_url: " . curl_error($ch) . " (errno " . curl_errno($ch) . ")");
+        return $reply;
+    }
+
+    protected function & _curlExec( $ch, $maxRedirects ) {
         while (--$maxRedirects >= 0) {
             $reply = curl_exec($ch);
             $info = curl_getinfo($ch);
             if ($this->_profiler) {
-                $this->_profiler->logData(array(
-                    'url' => $info['url'],
-                    'duration' => sprintf("%.6f", $info['total_time']),
-                    'http_code' => $info['http_code'],
-                    'namelookup_time' => sprintf("%.6f", $info['namelookup_time']),
-                    'connect_time' => sprintf("%.6f", $info['connect_time']),
-                    'pretransfer_time' => sprintf("%.6f", $info['pretransfer_time']),
-                    'starttransfer_time' => sprintf("%.6f", $info['starttransfer_time']),
-                    'redirect_time' => sprintf("%.6f", $info['redirect_time']),
-                    'total_time' => sprintf("%.6f", $info['total_time']),
-                    'size_upload' => $info['size_upload'],
-                    'speed_upload' => $info['speed_upload'],
-                    'size_download' => $info['size_download'],
-                    'speed_download' => $info['speed_download'],
-                    // not all versions of curl have these:
-                    'primary_ip' => isset($info['primary_ip']) ? $info['primary_ip'] : '',
-                    'primary_port' => isset($info['primary_port']) ? $info['primary_port'] : '',
-                ));
+                $this->_logCallProfile($info);
             }
             // curl_exec returns false on error, true if sent output to stdout
-            if ($reply === false) return false;
+            if ($reply === false) return $reply;
             if ($reply === true) $reply = "";
             $this->_curlinfo = & $info;
             $status = isset($info['http_code']) ? $info['http_code'] : 0;
-            // if redirected with MovedPermanently (301) or Found (302), try the new location
-            if ($status != 301 && $status != 302) {
+            if ($status == 301 || $status == 302) {
+                // if redirected with MovedPermanently (301) or Found (302), try the new location
+                curl_setopt($ch, CURLOPT_URL, $info['redirect_url']);
+            }
+            else {
+                // if not redirected, we have our reply
                 if (strncmp($reply, "HTTP/1.1 100 Continue", 20) == 0) {
                     // presume that the 100 Continue response is a single line followed by a newline
                     $e1 = strpos($reply, "\n");
@@ -278,10 +267,30 @@ X-Synthesized-By: Rest_Call_Http\r
                 }
                 return $reply;
             }
-            curl_setopt($ch, CURLOPT_URL, $info['redirect_url']);
         }
         // too many redirects
         return $reply;
+    }
+
+    protected function _logCallProfile( Array & $info ) {
+        $this->_profiler->logData(array(
+            'url' => $info['url'],
+            'duration' => sprintf("%.6f", $info['total_time']),
+            'http_code' => $info['http_code'],
+            'namelookup_time' => sprintf("%.6f", $info['namelookup_time']),
+            'connect_time' => sprintf("%.6f", $info['connect_time']),
+            'pretransfer_time' => sprintf("%.6f", $info['pretransfer_time']),
+            'starttransfer_time' => sprintf("%.6f", $info['starttransfer_time']),
+            'redirect_time' => sprintf("%.6f", $info['redirect_time']),
+            'total_time' => sprintf("%.6f", $info['total_time']),
+            'size_upload' => $info['size_upload'],
+            'speed_upload' => $info['speed_upload'],
+            'size_download' => $info['size_download'],
+            'speed_download' => $info['speed_download'],
+            // not all versions of curl have these:
+            'primary_ip' => isset($info['primary_ip']) ? $info['primary_ip'] : '',
+            'primary_port' => isset($info['primary_port']) ? $info['primary_port'] : '',
+        ));
     }
 
     protected function _appendParamsToUrl( $url, $params ) {
@@ -289,10 +298,5 @@ X-Synthesized-By: Rest_Call_Http\r
             ((strpos($url, '?') === false) ? '?' : '&') .
             (is_array($params) ? http_build_query($params) : $params);
         return $url;
-    }
-
-    // callback to chunk and save curl reply, for large streaming datasets
-    public function _appendReplyFile( $buf ) {
-        file_put_contents($this->_replyFile, $buf, FILE_APPEND);
     }
 }
