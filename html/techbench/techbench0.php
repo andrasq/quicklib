@@ -1,29 +1,29 @@
 <?php
 
-// $start_tm = microtime(true);
-
 /*
  * Toolkit benchmark in the form of TechEmpower, run on localhost.
  * http://www.techempower.com/benchmarks
  *
- * Copyright (C) 2013 Andras Radics
+ * Copyright (C) 2013-2014 Andras Radics
  * Licensed under the Apache License, Version 2.0
  *
- * This is the full-weight version 0, 11.5 k calls/sec
+ * This is the full-weight version 0, 13.6 k calls/sec
  * (4-core AMD Phenom II 3.6 GHz, 32-bit ubuntu 13.04, Apache 2.2.22)
 
-% time wrk -t 1 -c 11 -d 20s 'http://localhost/pp/aradics/techbench0.php?op=json'
-Running 20s test @ http://localhost/pp/aradics/techbench0.php?op=json
+% time taskset 1 wrk -t1 -c11 -d20s 'http://localhost:80/pp/aradics/techbench0.php?op=json'
+Running 20s test @ http://localhost:80/pp/aradics/techbench0.php?op=json
   1 threads and 11 connections
   Thread Stats   Avg      Stdev     Max   +/- Stdev
-    Latency     1.37ms    6.57ms  85.18ms   97.11%
-    Req/Sec    12.22k     1.25k   13.78k    94.61%
-  231456 requests in 20.00s, 52.13MB read
-Requests/sec:  11573.28
-Transfer/sec:      2.61MB
-0.912u 2.764s 0:20.00 18.3%	0+0k 0+0io 0pf+0w
+    Latency     1.13ms    5.94ms  90.96ms   97.05%
+    Req/Sec    14.86k     1.46k   16.56k    96.25%
+  280847 requests in 20.00s, 63.26MB read
+Requests/sec:  14042.86
+Transfer/sec:      3.16MB
+1.120u 3.236s 0:20.01 21.7%	0+0k 0+0io 0pf+0w
 
  */
+
+// $start_tm = microtime(true);
 
 if (!defined('QUICKLIB_DIR'))
     define('QUICKLIB_DIR', dirname(realpath(__FILE__)) . "/../../lib");
@@ -32,7 +32,7 @@ if (!defined('QUICKLIB_DIR'))
 $GLOBALS['_SERVER']['PATH_INFO'] = "/{$_GET['op']}";
 
 if (0) {
-    // this is the general-purpose, handles-all-cases autoloader (optimized for trees) (11700/s)
+    // this is the general-purpose, handles-all-cases autoloader (optimized for trees) (11.2 k/s)
     if (!class_exists('Quick_Autoloader', false))
         require QUICKLIB_DIR . '/Quick/Autoloader.php';
     Quick_Autoloader::getInstance()
@@ -40,15 +40,23 @@ if (0) {
         ->install();
 }
 elseif (0) {
-    // 5% slower than __autoload, but 15% faster than the full-featured autoloader (13500/s)
+    // 5% slower than __autoload, but 15% faster than the full-featured autoloader (13.5 k/s)
     if (!class_exists('Quick_Autoloader_QuickLoader', false))
         require QUICKLIB_DIR . '/Quick/Autoloader/QuickLoader.php';
     $al = new Quick_Autoloader_QuickLoader(QUICKLIB_DIR);
     $al->register();
 }
+elseif (1) {
+    // 2.5% overhead for the spl autoloader stack vs bare __autoload (13.6 k/s)
+    function __autoload( $classname ) {
+        require QUICKLIB_DIR . '/' . str_replace('_', '/', $classname) . ".php";
+    }
+    spl_autoload_register('__autoload');
+}
 else {
     // __autoload is faster than require_once, and much faster than any multi-dir autoloader
-    // using a primitive autoloader speeds up this test by 25% (14650/s; 2.5% for taskset 1)
+    // using a primitive autoloader speeds up this test by 25% (14.65 k/s)
+    // running with taskset 1 wrk speeds it up another 2.5%
     function __autoload( $classname ) {
         require QUICKLIB_DIR . '/' . str_replace('_', '/', $classname) . ".php";
     }

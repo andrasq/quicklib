@@ -38,7 +38,7 @@ $response = new Quick_Rest_Response_Http();
 //if (PHP_SAPI === 'cli') $response->setCli(true);
 
 //switch ($request->getParam('op'))
-switch ($GLOBALS['_REQUEST']['op'])
+switch ($GLOBALS['_GET']['op'])
 {
     case 'json':
         $msg = json_encode(array('message' => "Hello, World!"));

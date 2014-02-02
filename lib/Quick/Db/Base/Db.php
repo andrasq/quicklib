@@ -95,8 +95,8 @@ class Quick_Db_Base_Db
         $isError = ($rs === false);
         $isExecute = ($rs === true);
         if ($isError) $info = array(
-            'errno' => $errno,
-            'error' => $error,
+            'errno' => $this->_adapter->mysql_errno($this->_link),
+            'error' => $this->_adapter->mysql_error($this->_link),
             'duration' => sprintf("%.6f", $tm),
             'query' => $sql,
         );

@@ -3,14 +3,14 @@
 /**
  * Mysql select results.
  *
- * Copyright (C) 2013 Andras Radics
+ * Copyright (C) 2013-2014 Andras Radics
  * Licensed under the Apache License, Version 2.0
  *
  * 2013-02-21 - AR.
  */
 
 class Quick_Db_Mysql_SelectResult
-    implements Quick_Db_SelectResult, Quick_Db_SelectResultFactory
+    implements Quick_Db_SelectResult, Quick_Db_SelectResultFactory, Quick_Db_SelectFetcher
 {
     protected $_rs;
 
@@ -44,5 +44,21 @@ class Quick_Db_Mysql_SelectResult
     }
     public function asObject( $objectSpecifier /*, $objectParams = null*/ ) {
         return new Quick_Db_Mysql_SelectFetcher($this->_rs, 'asObject', $this, $objectSpecifier);
+    }
+
+
+    // mainly for testing, implement SelectFetcher methods as well (14% faster streaming results)
+    public function fetch( ) {
+        return mysql_fetch_assoc($this->_rs);
+    }
+    public function reset( ) {
+        @mysql_data_seek($this->_rs, 0);
+    }
+    public function fetchAll( $limit = null ) {
+        $fetcher = new Quick_Db_Mysql_SelectFetcher($this->_rs, 'fetchHash', $this);
+        return $fetcher->fetchAll($limit);
+    }
+    public function getIterator( ) {
+        return new Quick_Db_Iterator($this);
     }
 }

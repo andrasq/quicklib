@@ -13,7 +13,7 @@
 class Quick_Autoloader_Engine
 {
     protected $_nodes = array();
-    protected $_trees;
+    protected $_trees = array();
     protected $_classes = array();
     protected $_installed = false;
 
@@ -68,7 +68,7 @@ class Quick_Autoloader_Engine
         }
         else {
             // php strips a leading \ from namespaced classnames before autoloading
-            // optimize for the case of _ separated components in a directory tree
+            // optimize for the case of _ and \ separated components in a directory tree
             $classpath = '/' . str_replace('_', '/', str_replace('\\', '/', $classname));
             foreach ($this->_trees as $info) {
                 // cannot @include, it suppresses php parse errors too

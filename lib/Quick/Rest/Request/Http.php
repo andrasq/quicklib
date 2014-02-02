@@ -34,6 +34,11 @@ class Quick_Rest_Request_Http
         return $this->_method;
     }
 
+    public function setPath( $path ) {
+        $this->_path = $path;
+        return $this;
+    }
+
     public function getPath( ) {
         if (empty($this->_path)) {
             $server = $this->_server;

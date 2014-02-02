@@ -47,6 +47,12 @@ class Quick_Data_UniqueNumber
         return $copy;
     }
 
+    public function asUuid( ) {
+        $copy = new Quick_Data_UniqueNumber();
+        $copy->_fetcher = 'fetchUuid';
+        return $copy;
+    }
+
     public function fetchDecimal( ) {
         static $last;
         do {
@@ -101,7 +107,37 @@ class Quick_Data_UniqueNumber
         // WARNING: base64 encoding uses '/' as one of its symbols, cannot use in filenames
     }
 
+    public function fetchUuid( ) {
+        static $last;
+        $hwaddr = isset($this->_hwaddr)
+            ? $this->_hwaddr
+            : $this->_hwaddr = $this->_getNetworkHwaddr();
+        do {
+            $tm = microtime(true);
+            $nsec = ($tm - ($sec = (int)$tm)) * 1000000000;
+            // note: the uuid is not secure, it is easily reverse engineered plaintext
+            $num = sprintf("%08x-%04x-%04x-%04x-%s", $sec, getmypid(), $nsec/65536, $nsec%65536, $hwaddr);
+        } while ($num === $last);
+        return $last = $num;
+    }
+
     public function __toString( ) {
         return $this->fetch();
+    }
+
+
+    protected function _getNetworkHwaddr( ) {
+        static $hwaddr;
+        if ($hwaddr) return $hwaddr;
+
+        // on linux, use the 12-hex-digit HW address of an ethernet adapter
+        // FIXME: linux-only and requires an ethernet card
+        // the glob is slow, .00066 sec to locate 1 card
+        if ($cards = glob("/sys/devices/pci*/*/*/net/eth*/address"))
+            $hwaddr = strtolower(trim(str_replace(':', '', file_get_contents($cards[0]))));
+        else
+            $hwaddr = "110022003300";
+
+        return $hwaddr;
     }
 }

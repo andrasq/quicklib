@@ -26,6 +26,7 @@ class Quick_Data_UniqueNumberTest
             array('asDecimal', 26),     // 1+5 digits pid, 10 digits seconds, 1+9 digits nanoseconds
             array('asHex', 20),         // 4 digits pid, 8 digits seconds, 8 digits nanonseconds
             array('asBase64', 14),      // 10 bytes base64 encoded become 14 (contstant AA/==  prefix/suffix stripped)
+            array('asUuid', 36),        // 36 byte uuid (32 hex digits + 4 dashes)
         );
     }
 
@@ -69,17 +70,19 @@ class Quick_Data_UniqueNumberTest
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
         $timer->calibrate(10000, array($this, '_testSpeedNull'), array($this->_cut));
-        echo $timer->timeit(200000, 'fetch default: ', array($this, '_testSpeedFetch'), array($this->_cut));
-        echo $timer->timeit(200000, 'fetch default: ', array($this, '_testSpeedOneshot'), array($this->_cut));
+        echo $timer->timeit(100000, 'fetch default: ', array($this, '_testSpeedFetch'), array($this->_cut));
+        echo $timer->timeit(100000, 'fetch default: ', array($this, '_testSpeedOneshot'), array($this->_cut));
         // 550k/sec direct, 490k/sec via fetcher; 365k/sec oneshot
-        echo $timer->timeit(200000, 'fetch asDecimal: ', array($this, '_testSpeedFetch'), array($this->_cut->asDecimal()));
-        echo $timer->timeit(200000, 'fetch asHex: ', array($this, '_testSpeedFetch'), array($this->_cut->asHex()));
-        echo $timer->timeit(200000, 'fetch asBase64: ', array($this, '_testSpeedFetch'), array($this->_cut->asBase64()));
+        echo $timer->timeit(100000, 'fetch asDecimal: ', array($this, '_testSpeedFetch'), array($this->_cut->asDecimal()));
+        echo $timer->timeit(100000, 'fetch asHex: ', array($this, '_testSpeedFetch'), array($this->_cut->asHex()));
+        echo $timer->timeit(100000, 'fetch asBase64: ', array($this, '_testSpeedFetch'), array($this->_cut->asBase64()));
+        echo $timer->timeit(100000, 'fetch asUuid: ', array($this, '_testSpeedFetch'), array($this->_cut->asUuid()));
         // 487k/sec as hex via indirect fetch
-        echo $timer->timeit(200000, 'fetchDecimal: ', array($this, '_testSpeedFetchHex'), array($this->_cut));
-        echo $timer->timeit(200000, 'fetchHex: ', array($this, '_testSpeedFetchHex'), array($this->_cut));
-        echo $timer->timeit(200000, 'fetchBase64: ', array($this, '_testSpeedFetchBase64'), array($this->_cut));
+        echo $timer->timeit(100000, 'fetchDecimal: ', array($this, '_testSpeedFetchHex'), array($this->_cut));
+        echo $timer->timeit(100000, 'fetchHex: ', array($this, '_testSpeedFetchHex'), array($this->_cut));
+        echo $timer->timeit(100000, 'fetchBase64: ', array($this, '_testSpeedFetchBase64'), array($this->_cut));
         // 550k/sec via direct fetchHex; 500k/sec fetchBase64
+        echo $timer->timeit(100000, 'fetchUuid: ', array($this, '_testSpeedFetchUuid'), array($this->_cut));
     }
 
     public function _testSpeedNull( $cut ) {
@@ -103,5 +106,9 @@ class Quick_Data_UniqueNumberTest
 
     public function _testSpeedFetchBase64( $cut ) {
         return $cut->fetchBase64();
+    }
+
+    public function _testSpeedFetchUuid( $cut ) {
+        return $cut->fetchUuid();
     }
 }

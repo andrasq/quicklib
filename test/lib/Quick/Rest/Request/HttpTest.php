@@ -13,6 +13,29 @@ class Quick_Rest_Request_HttpTest
         $this->assertEquals(null, $cut->getParam('nonesuch'));
     }
 
+    public function testGetPathShouldReturnPathFromPathInfo( ) {
+        $id = uniqid();
+        $cut = new Quick_Rest_Request_Http();
+        $globals = array('_SERVER' => array('PATH_INFO' => "/$id"), '_GET' => array(), '_POST' => array());
+        $cut->setParamsFromGlobals($globals);
+        $this->assertEquals("/$id", $cut->getPath());
+    }
+
+    public function testGetPathShouldReturnPathFromRequestUri( ) {
+        $id = uniqid();
+        $cut = new Quick_Rest_Request_Http();
+        $globals = array('_SERVER' => array('REQUEST_URI' => "/$id"), '_GET' => array(), '_POST' => array());
+        $cut->setParamsFromGlobals($globals);
+        $this->assertEquals("/$id", $cut->getPath());
+    }
+
+    public function testSetPathShouldChangePath( ) {
+        $id = uniqid();
+        $cut = new Quick_Rest_Request_Http();
+        $cut->setPath("/$id");
+        $this->assertEquals("/$id", $cut->getPath());
+    }
+
     public function testGetParamsReturnsAllParams( ) {
         $cut = $this->_makeRequestWithParams(
             $a = array('a' => 1, 'b' => 2),

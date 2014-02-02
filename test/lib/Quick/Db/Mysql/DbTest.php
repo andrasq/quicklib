@@ -120,7 +120,7 @@ class Quick_Db_Mysql_DbTest
         $this->assertType('Quick_Db_QueryInfo', $info);
     }
 
-    public function testSetProfilingShouldTurnOnCallProfiling( ) {
+    public function testSetProfilingShouldProfileSuccessfulSelect( ) {
         $datalogger = new Quick_Data_Datalogger_Array();
         // use the result set resource id "0" for testing, it will not be freed by SelectResult.
         // Note that mysql only returns true, false, or a non-zero resource id.
@@ -133,6 +133,24 @@ class Quick_Db_Mysql_DbTest
         $this->assertEquals(2, count($data));
         $this->assertContains("SELECT 22", $data[0]);
         $this->assertContains("UPDATE 33", $data[1]);
+    }
+
+    public function testSetProfilingShouldProfileSuccessfulExec( ) {
+        $datalogger = new Quick_Data_Datalogger_Array();
+        $this->_mysql->expects($this->any())->method('mysql_query')->will($this->returnValue(true));
+        $this->_cut->setProfiling($datalogger);
+        $this->_cut->execute("UPDATE foo");
+        $data = $datalogger->getData();
+        $this->assertContains("UPDATE foo", $data[0]);
+    }
+
+    public function testSetProfilingShouldProfileErroringCall( ) {
+        $datalogger = new Quick_Data_Datalogger_Array();
+        $this->_mysql->expects($this->any())->method('mysql_query')->will($this->returnValue(false));
+        $this->_cut->setProfiling($datalogger);
+        try { $this->_cut->select("SELECT foo"); } catch (Exception $e) { }
+        $data = $datalogger->getData();
+        $this->assertContains("SELECT foo", $data[0]);
     }
 
     public function testAsListShouldReturnList( ) {
@@ -197,6 +215,8 @@ class Quick_Db_Mysql_DbTest
         // 17k/s "select 1"
         echo $timer->timeit(10000, "oneshot", array($this, '_testSpeedOneshot'), array($creds));
         // 8.3k/s "select 1" without USE db, 4.9k/s with
+        echo $timer->timeit(10000, "oneshot persistent", array($this, '_testSpeedOneshotPersistent'), array($creds));
+        // 17k/s
 
         echo $timer->timeit(10000, "mysql_connect", array($this, '_testSpeedMysqlConnect'), array($conn));
         // 15.8k/s
@@ -221,11 +241,21 @@ class Quick_Db_Mysql_DbTest
 
     public function _testSpeedResult( $cut ) {
         //$cut->query("SELECT 1")->asList()->fetch();   // 17k/s
-        $cut->query("SELECT 1")->asColumn()->fetch();   // 17k/s
+        //$cut->query("SELECT 1")->asColumn()->fetch();   // 17k/s
+        $cut->query("SELECT 1")->fetch();   // 17.5k/s
     }
 
     public function _testSpeedOneshot( $creds ) {
         $adapter = new Quick_Db_Mysql_Adapter();
+        $conn = new Quick_Db_Mysql_Connection($creds, $adapter);
+        $link = $conn->createLink();
+        $adapter->setLink($link);
+        $db = new Quick_Db_Mysql_Db($link, $adapter);
+        return $db->query("SELECT 1")->asColumn()->fetch();
+    }
+
+    public function _testSpeedOneshotPersistent( $creds ) {
+        $adapter = new Quick_Db_Mysql_PersistentAdapter();
         $conn = new Quick_Db_Mysql_Connection($creds, $adapter);
         $link = $conn->createLink();
         $adapter->setLink($link);

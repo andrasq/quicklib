@@ -1,7 +1,7 @@
 <?
 
-error_reporting(E_ALL & ~E_NOTICE);
-ini_set('precision', max(20, ini_get('precision')));
+error_reporting(E_ALL);
+ini_set('precision', 16);
 
 if (!function_exists('add_include_path')) {
     function add_include_path($path) {
