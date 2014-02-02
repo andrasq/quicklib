@@ -14,7 +14,7 @@ class Quick_Logger_SyslogTest
 
     public function logMethodProvider( ) {
         return array(
-            array('debug'),
+            // array('debug'),
             array('info'),
             array('err'),
         );

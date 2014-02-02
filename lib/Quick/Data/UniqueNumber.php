@@ -10,7 +10,7 @@
  * Licensed under the Apache License, Version 2.0
  *
  * Note that there is still a small race condition:  if the process table
- * is full and the current process exists, the next process will get the same
+ * is full and the current process exits, the next process will get the same
  * process id.  If this all happens within the same timestamp (1 ns),
  * the previous number will be generated.
  */
