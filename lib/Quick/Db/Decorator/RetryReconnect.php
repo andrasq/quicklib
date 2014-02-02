@@ -60,7 +60,7 @@ class Quick_Db_Decorator_RetryReconnect
         do {
             try { $db->setLink($this->_conn->createLink()); return; }
             catch (Exception $e) { }
-        } (while ++$ntries <= $this->_reconnectLimit && (1 || usleep(10000)));
+        } while (++$ntries <= $this->_reconnectLimit && (1 || usleep(10000)));
         // if unable to reconnect, rethrow the last exception
         throw $e;
     }
