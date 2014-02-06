@@ -70,4 +70,22 @@ class Quick_Queue_ConfigTest
         $this->_config = array('a' => array('a1' => 1, 'a3' => 3));
         $this->assertEquals(3, $this->_cut->get('a', 'a3'));
     }
+
+    public function testSaveToFileShouldWriteFile( ) {
+        $file = new Quick_Test_Tempfile();
+        $this->_config = array('a' => uniqid());
+        $this->_cut->saveToFile($file, 'conf');
+        include $file;
+        $this->assertEquals($this->_config, $conf);
+    }
+
+    public function testLoadFromFileShouldMergeFileContents( ) {
+        $conf = array('a' => uniqid(), 'b' => array('a' => 'new-a', 'b' => 'new-b'));
+        $file = new Quick_Test_Tempfile();
+        file_put_contents($file, "<?php\n\$conf = " . var_export($conf, true) . ";\n");
+        $this->_config = array('a' => 'overwrite', 'b' => array('b' => 'overwrite', 'c' => 'keep'));
+        $this->_cut->loadFromFile($file, 'conf');
+        $this->assertEquals($conf['a'], $this->_config['a']);
+        $this->assertEquals(array('a' => 'new-a', 'b' => 'new-b', 'c' => 'keep'), $this->_config['b']);
+    }
 }

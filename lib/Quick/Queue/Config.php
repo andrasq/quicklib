@@ -68,4 +68,30 @@ class Quick_Queue_Config
         else
             return null;
     }
+
+    public function saveToFile( $filename, $varname ) {
+        file_put_contents($filename, "<?php\n\n\${$varname} = " . var_export($this->_config, true) . ";\n");
+    }
+
+    public function loadFromFile( $filename, $varname ) {
+        if (file_exists($filename)) {
+            if (include $filename) {
+                // when loading, recursively merge in the new content
+                $this->_mergeConfig($this->_config, $$varname);
+            }
+            return true;
+            // apc caching seems to work with self-modified file,
+            // else read in file, strip out <? and <?php, and eval the contents
+        }
+    }
+
+
+    protected function _mergeConfig( Array & $config, Array & $array ) {
+        foreach ($array as $k => $v) {
+            if (isset($config[$k]) && is_array($config[$k]) && is_array($v))
+                $this->_mergeConfig($config[$k], $v);
+            else
+                $config[$k] = $v;
+        }
+    }
 }

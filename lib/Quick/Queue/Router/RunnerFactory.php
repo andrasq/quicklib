@@ -27,7 +27,7 @@ class Quick_Queue_Router_RunnerFactory
         if (isset($this->_runnerCache[$jobtype]))
             return $this->_runnerCache[$jobtype];
 
-        if (! $configs = $this->_config['runner'][$jobtype])
+        if (!$configs = $this->_queueConfig->get('runner', $jobtype))
             throw new Quick_Queue_Exception("job $jobtype does not have any runners defined");
 
         if (is_array($configs) && isset($configs[1])) {

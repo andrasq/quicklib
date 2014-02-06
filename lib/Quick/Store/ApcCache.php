@@ -60,6 +60,8 @@ class Quick_Store_ApcCache
     }
 
     public function exists( $name ) {
+        // NOTE: apc_exists can deadlock if apc_add created a dupe while busy w/ gc;
+        // see http://stackoverflow.com/questions/10494744/deadlock-with-apc-exists-apc-add-apc-php
         return apc_exists("$this->_prefix$name");
     }
 

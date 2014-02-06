@@ -35,7 +35,12 @@ class Quick_Rest_Call_CurlMultiExposer
         $info = array(
             'handle' => reset($this->_multiHandles),
         );
+        $this->_content[$info['handle']] = "content-{$info['handle']}";
         return $info;
+    }
+
+    protected function _curl_multi_getcontent( $ch ) {
+        return $this->_content[$ch];
     }
 }
 
@@ -117,6 +122,22 @@ class Quick_Rest_Call_CurlMultiTest
         $this->assertEquals(array(), $this->_cut->_ch);
         $this->assertContainsElements(range(1, 100), $this->_cut->_chDone);
         $this->assertContainsElements(range(1, 100), $this->_cut->getDoneHandles());
+    }
+
+    public function testGetDoneHandlesShouldReturnCompletedHandles( ) {
+        $this->_cut->setHandles(range(1, 10));
+        $this->_cut->exec();
+        $done = $this->_cut->_chDone;
+        $this->assertEquals($done, $this->_cut->getDoneHandles());
+        $this->assertEquals(array(), $this->_cut->getDoneHandles(), "once removed should not have handles left");
+    }
+
+    public function testGetDoneContentShouldReturnContent( ) {
+        $this->_cut->setHandles(range(1, 10));
+        $this->_cut->exec();
+        $handles = $this->_cut->getDoneHandles();
+        foreach ($handles as $handle)
+            $this->assertEquals("content-$handle", $this->_cut->getDoneContent($handle));
     }
 
     public function xx_testSpeed( ) {

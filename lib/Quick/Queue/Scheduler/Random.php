@@ -104,6 +104,7 @@ class Quick_Queue_Scheduler_Random
         $batchsize = $this->_queueConfig->get('batchsize', $jobtype);
         $limit = isset($limit) ? min($limit, $batchsize) : $batchsize;
         $jobs = $this->_store->getJobs($jobtype, $limit);
+        if (!$jobs) return false;
         if (isset($this->_batchcounts[$jobtype]))
             ++$this->_batchcounts[$jobtype];
         else

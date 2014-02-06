@@ -52,6 +52,10 @@ class Quick_Rest_Call_CurlMulti
         return $ret;
     }
 
+    public function getDoneContent( $ch ) {
+        return $this->_curl_multi_getcontent($ch);
+    }
+
     /**
      * Exec() iterates the calls and returns true if all calls have finished.
      * It spends up to setTimeout() seconds before returning.
@@ -62,8 +66,8 @@ class Quick_Rest_Call_CurlMulti
      * non-responsive. (?curl_multi tries to start all, deadlocks vs self?)
      * There is an upper limit on the window size, eg only 1021 when set to 5000.
      */
-    public function exec( ) {
-        if ($timeout = $this->_timeout) $timeout = microtime(true) + $timeout;
+    public function exec( $timeout = null ) {
+        if ($timeout !== null || $timeout = $this->_timeout) $timeout = microtime(true) + $timeout;
         $mh = $this->_mh;
 
         // load the run window to capacity
@@ -105,9 +109,10 @@ class Quick_Rest_Call_CurlMulti
             else {
                 // wait for some calls to finish to be able to start more
                 // nb: while blocked linux may migrate the process to another core,
-                // losing 15% of overall performance (cold cache on new cpu)
+                // losing up to 15% of overall performance (cold cache on new cpu)
+                // sleeping for 50us not 10us yields +15% throughput
                 if ($timeout)
-                    usleep(10);
+                    usleep(50);
             }
 
             $done = (!$this->_ch && !$this->_runningCount);
@@ -136,5 +141,9 @@ class Quick_Rest_Call_CurlMulti
 
     protected function _curl_multi_info_read( $mh ) {
         return curl_multi_info_read($mh);
+    }
+
+    protected function _curl_multi_getcontent( $ch ) {
+        return curl_multi_getcontent($ch);
     }
 }

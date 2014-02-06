@@ -9,6 +9,9 @@
  * Copyright (C) 2013 Andras Radics.
  */
 
+ini_set('opcache.save_comments', 1);
+ini_set('opcache.load_comments', 1);
+
 if (is_dir(dirname(__FILE__).'/test')) {
     define('TEST_ROOT', dirname(__FILE__));
 }

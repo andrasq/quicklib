@@ -15,15 +15,22 @@ class Quick_Queue_Runner_HttpMulti
     protected $_batch;
     protected $_isDone = false;
     protected $_isError = false;
-    protected $_mh;
+    protected $_multi;
     protected $_ch = array();
     protected $_donech = array();
 
     public function __construct( $method, $url ) {
         $this->_method = $method;
         $this->_url = $url;
-        $this->_editUrlData = strpos($url, '{DATA}') !== false;
+        $this->_insertJobtype = strpos($url, '{JOBTYPE}') !== false;
+        $this->_insertData = strpos($url, '{DATA}') !== false;
+        $this->_editUrlData = $this->_insertJobtype || $this->_insertData;
         $this->_postData = ($method !== 'GET');
+
+        // reuse the curl_multi handle for all calls, it reuses the open connections!
+        $this->_multi = new Quick_Rest_Call_CurlMulti($mh = curl_multi_init());
+        $this->_multi->setTimeout(.0005); // almost non-blocking
+        $this->_multi->setWindowSize(5);
     }
 
     public function isDone( ) {
@@ -34,43 +41,34 @@ class Quick_Queue_Runner_HttpMulti
         $this->_batch = $batch;
         $this->_batch->startTm = microtime(true);
         $this->_jobtype = $jobtype;
-        // reuse the curl_multi handle for all calls, it reuses the open connections!
-        if (!$this->_mh) $this->_mh = curl_multi_init();
-        $mh = $this->_mh;
+
         foreach ($batch->jobs as $jobKey => $data) {
-            $ch = $this->_ch[$jobKey] = $this->_createCurlRequest($data);
-            curl_multi_add_handle($mh, $ch);
+            $handles[] = $this->_ch[$jobKey] = $this->_createCurlRequest($data);
         }
-        curl_multi_exec($mh, $running);
+        $this->_multi->addHandles($handles);
+
+        $this->_multi->exec();
         $this->_isDone = false;
         $this->_isError = false;
         return true;
     }
 
     public function getDoneJobtypes( ) {
-        if (!$this->_isDone) {
-            $rv = curl_multi_exec($this->_mh, $running);
-            // there is an obscure curl_multi bug that people work around;
-            // exec can return CURLM_OK even though it has not finished.
-            // The fixes test $running in addition to the call return value.
-            // See the implementation in eg https://bugs.php.net/bug.php?id=42300
-            if ($rv === CURLM_CALL_MULTI_PERFORM || $rv === CURLM_OK && $running)
-                return array();
-            if ($rv !== CURLM_OK) $this->_isError = $rv;
-            $this->_batch->runtime = microtime(true) - $this->_batch->startTm;
-            $this->_isDone = true;
-        }
+        if (!$this->_multi->exec())
+            return array();
+
+        $this->_batch->runtime = microtime(true) - $this->_batch->startTm;
+        $this->_isDone = true;
         return array($this->_jobtype);
     }
 
-    public function & getDoneBatch( $jobtype ) {
+    public function getDoneBatch( $jobtype ) {
         if ($this->_isDone) {
             $runtime = sprintf("%.6f", $this->_batch->runtime / $this->_batch->count);
-            $mh = $this->_mh;
             $results = array();
             foreach ($this->_ch as $jobKey => $ch) {
 // FIXME: act on isError!
-                $output = curl_multi_getcontent($ch);
+                $output = $this->_multi->getDoneContent($ch);
                 if (($code = curl_getinfo($ch, CURLINFO_HTTP_CODE)) < 200 || $code >= 300) {
                     $results[$jobKey] = array(
                         'status' => Quick_Queue_Runner::RUN_ERROR,
@@ -92,10 +90,10 @@ class Quick_Queue_Runner_HttpMulti
                         'output' => $output,
                     );
                 }
-                curl_multi_remove_handle($mh, $ch);
             }
+            $this->_multi->getDoneHandles();
+
             $this->_donech += $this->_ch;
-            // keep $ch and $mh open for reuse next time, both faster and does not leak sockets
             $this->_ch = array();
             $this->_batch->results = & $results;
             return $this->_batch;
@@ -120,8 +118,13 @@ class Quick_Queue_Runner_HttpMulti
         if ($this->_postData) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, urlencode($data));
         }
-        elseif ($this->_editUrlData) {
-            curl_setopt($ch, CURLOPT_URL, str_replace('{DATA}', urlencode($data), $this->_url));
+        if ($this->_editUrlData) {
+            $url = $this->_url;
+            if ($this->_insertJobtype)
+                $url = str_replace("{JOBTYPE}", urlencode($this->_jobtype), $url);
+            if ($this->_insertData)
+                $url = str_replace("{DATA}", urlencode($data), $url);
+            curl_setopt($ch, CURLOPT_URL, $url);
         }
         // else same url, same data as before
         return $ch;
