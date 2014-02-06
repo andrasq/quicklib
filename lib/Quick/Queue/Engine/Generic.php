@@ -19,7 +19,8 @@ class Quick_Queue_Engine_Generic
 
     protected $_capCount = 128;         // task count limit on concurrent tasks
     protected $_capWeight = 16;         // cpu limit on concurrent tasks
-    protected $_runningCount = 0;       // number of concurrent tasks currently running
+    protected $_runningCount = 0;       // number of tasks currently running
+    protected $_activeCount = 0;        // number of concurrent tasks currently running
     protected $_runningWeight = 0;      // total cpu usage density currently running
 
     protected $_runStopTime;
@@ -89,6 +90,7 @@ class Quick_Queue_Engine_Generic
         $status->set('queue', 'started', $this->_totalCount);
         $status->set('queue', 'finished', $this->_runCount);
         $status->set('queue', 'running', $this->_runningCount);
+        $status->set('queue', 'active', $this->_activeCount);
 
         $sts = new Quick_Queue_Status();
         $this->_store->getStatus('store', $sts);
@@ -112,7 +114,7 @@ class Quick_Queue_Engine_Generic
 
     protected function _shouldLaunchNewJobs( ) {
         return (
-            $this->_runningCount < $this->_capCount &&
+            $this->_activeCount < $this->_capCount &&
             $this->_runningWeight < $this->_capWeight &&
             true
         );
@@ -126,9 +128,12 @@ class Quick_Queue_Engine_Generic
             $this->_scheduler->setBatchDone($jobtype, $batch);
             $this->_processResults($jobtype, $batch);
             $n = $batch->count;
+            $w = (isset($batch->width) ? $batch->width : 1);
             $this->_runningCount -= $n;
-            $this->_runningWeight -= $this->_queueConfig->get('weight', $jobtype);
+            $this->_activeCount -= $w;
+            $this->_runningWeight -= $w * $this->_queueConfig->get('weight', $jobtype);
             // note: only retire 1 batch at a time, faster to interleave retiring and launching
+            $this->_totalCount += $n;
             break;
         }
         return true;
@@ -145,10 +150,10 @@ class Quick_Queue_Engine_Generic
         if ($jobtype && ($batch = $this->_scheduler->getBatchToRun($jobtype, $limit))) {
             if ($this->_runner->runBatch($jobtype, $batch)) {
                 // jobs started, count them and keep a copy for archival
-                $n = count($batch->jobs);
-                $this->_totalCount += $n;
-                $this->_runningCount += $n;
-                $this->_runningWeight = $this->_queueConfig->get('weight', $jobtype);
+                $this->_runningCount += $batch->count;
+                $w = isset($batch->width) ? $batch->width : 1;
+                $this->_activeCount += $w;
+                $this->_runningWeight = $w * $this->_queueConfig->get('weight', $jobtype);
                 return true;
             }
             else {
@@ -170,7 +175,7 @@ class Quick_Queue_Engine_Generic
             Job results hash expected to contain eg:
                 array('status' => 0, 'result' => "") for voluntary returns
                 array('status' => 2, 'message' => "php error: division by zero") for errors and exceptions
-                array('status' => -1, 'message' => 'notrun') for tasks not run
+                array('status' => 3, 'message' => 'notrun') for tasks not run
             All task keys must be present to know which tasks were candidates for running.
             **/
 

@@ -18,6 +18,7 @@ class Quick_Queue_Runner_HttpMulti
     protected $_multi;
     protected $_ch = array();
     protected $_donech = array();
+    protected $_windowSize = 5;
 
     public function __construct( $method, $url ) {
         $this->_method = $method;
@@ -30,7 +31,7 @@ class Quick_Queue_Runner_HttpMulti
         // reuse the curl_multi handle for all calls, it reuses the open connections!
         $this->_multi = new Quick_Rest_Call_CurlMulti($mh = curl_multi_init());
         $this->_multi->setTimeout(.0005); // almost non-blocking
-        $this->_multi->setWindowSize(5);
+        $this->_multi->setWindowSize($this->_windowSize);
     }
 
     public function isDone( ) {
@@ -50,6 +51,9 @@ class Quick_Queue_Runner_HttpMulti
         $this->_multi->exec();
         $this->_isDone = false;
         $this->_isError = false;
+
+        $batch->width = $this->_windowSize;
+
         return true;
     }
 
