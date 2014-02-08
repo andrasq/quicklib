@@ -22,6 +22,7 @@ $queueConfig = array(
             // 10jt: 6500/s 1x1, 7700/s 4x1, 6500 1x4, 10800 3x4, 7400 4x4, 8300 2x8, 6600 1x16
             // 2.25% slower w/ universal runner: 425/s 1x1, 3500/s 10x1, 11500/s 40x1, BUT 20/s 100x1
             // Any jobtype can use a generic {JOBTYPE} runner, no need to configure a job runner
+            // note: time both w/ and w/o taskset 1; sometimes one is faster, sometimes the other
 
             'batchsize' => 1,
             'batchlimit' => 1,

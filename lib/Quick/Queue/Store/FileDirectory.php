@@ -209,15 +209,21 @@ class Quick_Queue_Store_FileDirectory
 
     protected function _getFifo( $jobtype ) {
         if (isset($this->_fifos[$jobtype])) {
-            return $this->_fifos[$jobtype];
+            // maintain an LRU list: shuffle the fifo to the end
+            $fifo = $this->_fifos[$jobtype];
+            unset($this->_fifos[$jobtype]);
+            return $this->_fifos[$jobtype] = $fifo;
         }
         else {
-            // @FIXME: garbage collect fifos, keep a finite LRU list instead of caching all
-            // if (count($this->_fifos) > 200) $this->_fifos = array_slice($this->_fifos, 0, 100);
-            // @FIXME: only cache a few fifos, and preferentially schedule those jobs,
-            // to allow a second queue to run to handle other jobtypes.
+            // garbage collect fifos, keep a finite LRU list instead of caching all
+            // running with more than 500 jobtypes could run much slower
+            if (count($this->_fifos) > 500)
+                array_splice($this->_fifos, 0, 200);
             $fifo = new Quick_Fifo_FileReader($this->_store->getFilename($jobtype));
             return $this->_fifos[$jobtype] = $fifo->open();
+
+            // note: maybe feed back fifo availability into scheduling decisions,
+            // to allow a second queue to run to handle the other jobtypes.
         }
     }
 

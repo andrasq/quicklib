@@ -44,22 +44,24 @@ class Quick_Queue_Engine_Generic
         return $this;
     }
 
-    public function run( $runDurationLimit = 1.00, $runTaskcountLimit = 1000000000 ) {
+    public function run( $runDurationLimit = null, $runTaskcountLimit = null ) {
         $startTime = microtime(true);
+        if ($runDurationLimit === null) $runDurationLimit = 30;
+        if ($runTaskcountLimit === null) $runTaskcountLimit = 10000;
         $this->_runStopTime = $startTime + $runDurationLimit;
         $this->_runStopCount = $this->_totalCount + $runTaskcountLimit;
 
         while ($this->_shouldContinueToRun()) {
             $this->_retireDoneJobs();
             if ($this->_shouldLaunchNewJobs()) {
-                if (!$this->_launchNewJobs($this->_runStopCount - $this->_totalCount)) {
+                if (!$this->_launchNewJobs($this->_runStopCount - $this->_totalCount - $this->_runningCount)) {
                     // no suitable jobs available to run, check again in a bit
-                    usleep(2000);
+                    usleep(200);
                 }
             }
             else {
                 // resource constrained, try to run jobs in a little bit
-                usleep(2000);
+                usleep(200);
             }
         }
 
@@ -128,7 +130,7 @@ class Quick_Queue_Engine_Generic
             $this->_scheduler->setBatchDone($jobtype, $batch);
             $this->_processResults($jobtype, $batch);
             $n = $batch->count;
-            $w = (isset($batch->width) ? $batch->width : 1);
+            $w = $batch->concurrency;
             $this->_runningCount -= $n;
             $this->_activeCount -= $w;
             $this->_runningWeight -= $w * $this->_queueConfig->get('weight', $jobtype);
@@ -151,7 +153,7 @@ class Quick_Queue_Engine_Generic
             if ($this->_runner->runBatch($jobtype, $batch)) {
                 // jobs started, count them and keep a copy for archival
                 $this->_runningCount += $batch->count;
-                $w = isset($batch->width) ? $batch->width : 1;
+                $w = $batch->concurrency;
                 $this->_activeCount += $w;
                 $this->_runningWeight = $w * $this->_queueConfig->get('weight', $jobtype);
                 return true;

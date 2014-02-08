@@ -24,6 +24,7 @@ class Quick_Queue_Runner_HttpMulti
         $this->_method = $method;
         $this->_url = $url;
         $this->_insertJobtype = strpos($url, '{JOBTYPE}') !== false;
+        $this->_insertJobtypePart = strpos($url, '{JOBTYPE:') !== false;
         $this->_insertData = strpos($url, '{DATA}') !== false;
         $this->_editUrlData = $this->_insertJobtype || $this->_insertData;
         $this->_postData = ($method !== 'GET');
@@ -52,7 +53,7 @@ class Quick_Queue_Runner_HttpMulti
         $this->_isDone = false;
         $this->_isError = false;
 
-        $batch->width = $this->_windowSize;
+        $batch->concurrency = $this->_windowSize;
 
         return true;
     }
@@ -124,8 +125,15 @@ class Quick_Queue_Runner_HttpMulti
         }
         if ($this->_editUrlData) {
             $url = $this->_url;
-            if ($this->_insertJobtype)
+            if ($this->_insertJobtype) {
                 $url = str_replace("{JOBTYPE}", urlencode($this->_jobtype), $url);
+            }
+            if ($this->_insertJobtypePart) {
+                $parts = explode(':', $this->_jobtype);
+                $parts[] = '';
+                $url = str_replace("{JOBTYPE:1}", urlencode($parts[0]), $url);
+                $url = str_replace("{JOBTYPE:2}", urlencode($parts[1]), $url);
+            }
             if ($this->_insertData)
                 $url = str_replace("{DATA}", urlencode($data), $url);
             curl_setopt($ch, CURLOPT_URL, $url);

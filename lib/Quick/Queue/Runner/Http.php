@@ -68,16 +68,25 @@ class Quick_Queue_Runner_Http
     }
 
     protected function _saveBatchRunner( $jobtype, $runner ) {
-        $this->_batchRunners[$jobtype][] = $runner;
+        $this->_batchRunners[$runner->key][] = $runner;
         // cache no more than 100 batch runners of any one type
-        if (isset($this->_batchRunners[$jobtype][100]))
+        if (isset($this->_batchRunners[$runner->key][100]))
             array_splice($this->_batchRunners[$jobtype], 0, 50);
     }
 
     protected function _getBatchRunner( $jobtype, $url ) {
-        if (!empty($this->_batchRunners[$jobtype]))
-            return array_pop($this->_batchRunners[$jobtype]);
-        else
-            return new Quick_Queue_Runner_HttpMulti('GET', $url);
+        $key = $this->_getUrlKey($url);
+        // NOTE: each runner keeps $batch->concurrency (5) connection file descriptors open
+        if (!empty($this->_batchRunners[$key]))
+            return array_pop($this->_batchRunners[$key]);
+        else {
+            $runner = new Quick_Queue_Runner_HttpMulti('GET', $url);
+            $runner->key = $key;
+            return $runner;
+        }
+    }
+
+    protected function _getUrlKey( $url ) {
+        return substr($url, 0, strpos($url, '/', 8));
     }
 }

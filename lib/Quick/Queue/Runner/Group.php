@@ -29,15 +29,16 @@ class Quick_Queue_Runner_Group
         // runs only one batch at a time!  each sub-runner runs only one batch at a time!
         $ok = true;
         $this->_batch = $batch;
-        $wid = 0;
+        $batch->concurrency = 1;
+        $w = 0;
         foreach ($this->_runners as $runner) {
             // nb: cloning is very fast, even with huge arrays in the object
             // NOTE: could sequence runners for less cpu pressure, strobe w/ getDoneJobtypes
             if (! $runner->runBatch($jobtype, $b = clone $batch))
                 $ok = false;
-            $wid += $b->width;
+            $w += $b->concurrency;
         }
-        $batch->width = $wid;
+        $batch->concurrency = $w;
         return $ok;
     }
 
