@@ -27,7 +27,6 @@ class Quick_Queue_Runner_Http
         $runner = $this->_getBatchRunner($jobtype, $url);
         if ($runner->runBatch($jobtype, $batch)) {
             $this->_batches[$jobtype][] = $runner;
-            // batch->width set by actual jobtype-specific runner
             return true;
         }
     }

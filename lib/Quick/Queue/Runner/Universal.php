@@ -33,7 +33,6 @@ class Quick_Queue_Runner_Universal
             $this->_sharedRunners[$runner->sharedType] = $runner;
         else
             $this->_runners[] = $runner;
-        // $batch->width set by actual runner
         return $ok;
     }
 

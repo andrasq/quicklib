@@ -21,37 +21,14 @@ class Quick_Rest_AppRunnerTest
         $this->_cut = new Quick_Rest_AppRunner();
     }
 
-    public function testSetConfigShouldSaveConfigAndGetConfigShouldRetrieveConfig( ) {
-        $this->_cut->setConfig('a', $u1 = uniqid());
-        $this->_cut->setConfig('b', $u2 = uniqid());
-        $this->assertEquals($u1, $this->_cut->getConfig('a'));
-        $this->assertEquals($u2, $this->_cut->getConfig('b'));
-        $this->assertEquals(null, $this->_cut->getConfig('c'));
-    }
-
-    public function testPeekInstanceShouldReturnNullIfNotDefined( ) {
-        $this->assertNull($this->_cut->peekInstance('nonesuch'));
-    }
-
-    /**
-     * @expectedException       Quick_Rest_Exception
-     */
-    public function testGetInstanceShouldThrowExceptionIfNotDefined( ) {
-        $this->_cut->getInstance('nonesuch');
-    }
-
-    public function testGetInstanceShouldReturnDefinedInstance( ) {
-        $this->_cut->setInstance('type1', $id1 = microtime(true));
-        $this->_cut->setInstance('type2', $id2 = uniqid());
-        $this->assertEquals($id2, $this->_cut->getInstance('type2'));
-    }
-
-    public function testGetInstanceShouldBuildInstance( ) {
-        $type = uniqid();
-        $callback = $this->getMock('StdClass', array('getpid'));
-        $callback->expects($this->once())->method('getpid')->will($this->returnValue(getmypid()));
-        $this->_cut->setInstanceBuilder($type, array($callback, 'getpid'));
-        $this->assertEquals(getmypid(), $this->_cut->getInstance($type));
+    public function testRouteCallShouldAcceptCallbacksThatAppearValid( ) {
+        // valid
+        $this->_cut->routeCall('GET', '/path1', 'Quick_Rest_AppRunnerTest_EchoController::echoAction');
+        $this->_cut->routeCall('GET', '/path2', 'function_exists');
+        $this->_cut->routeCall('GET', '/path3', create_function('$a,$b,$c', 'return;'));
+        // not valid, but syntactically appear to be
+        $this->_cut->routeCall('GET', '/path4', array("hello", "world"));
+        $this->_cut->routeCall('GET', '/path5', "Hello, world");
     }
 
     /**
@@ -63,11 +40,19 @@ class Quick_Rest_AppRunnerTest
         $this->_cut->runCall($request, $this->_makeResponse());
     }
 
+    public function invalidCallbackProvider( ) {
+        return array(
+            array(123),
+            array(array(1, 2)),
+        );
+    }
+
     /**
      * @expectedException       Quick_Rest_Exception
+     * @dataProvider            invalidCallbackProvider
      */
-    public function testSetRouteShouldTrowExceptionIfCallbackNotCallable( ) {
-        $this->_cut->setRoute('GET://call/name', 123);
+    public function testRouteCallShouldTrowExceptionIfCallbackNotValid( $callback ) {
+        $this->_cut->routeCall('GET', '/call/name', $callback);
     }
 
     public function testRunCallShouldInvokeDoublecolonStringCallback( ) {
@@ -91,6 +76,8 @@ class Quick_Rest_AppRunnerTest
     }
 
     public function testRunCallShouldInvokeAnonymousFunctionCallbacks( ) {
+        if (version_compare(phpversion(), "5.3.0") < 0)
+            $this->markTestSkipped();
         $runner = $this->_makeRunner($calls = array('a', 'b', 'c'));
         foreach ($calls as $call)
             $this->_cut->routeCall('GET', "/call/$call", function ($req, $resp, $app) use ($runner) {

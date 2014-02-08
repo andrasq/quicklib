@@ -35,7 +35,7 @@ $GLOBALS['_SERVER']['PATH_INFO'] = "/{$_GET['op']}";
 
 $request = new Quick_Rest_Request_Http();
 $response = new Quick_Rest_Response_Http();
-$app = new Quick_Rest_AppRunner();
+$appRunner = new Quick_Rest_AppRunner();
 
 $request->setParamsFromGlobals($GLOBALS);
 if (PHP_SAPI === 'cli') $response->setCli(true);
@@ -45,7 +45,7 @@ $routes = array(
     'GET::/db' => "testApp::dbAction",
     'GET::/plaintext' => "testApp::plaintextAction",
 );
-$app->setRoutes($routes);
+$appRunner->setRoutes($routes);
 
 class testApp
     implements Quick_Rest_Controller
@@ -69,5 +69,5 @@ class testApp
     }
 }
 
-$app->runCall($request, $response);
+$appRunner->runCall($request, $response);
 $response->emitResponse();

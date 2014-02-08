@@ -25,7 +25,6 @@ class Quick_Queue_Runner_Fake
     public function runBatch( $jobtype, Quick_Queue_Batch $batch ) {
         // jobs are immediately done!
         $this->_batches[$jobtype][] = $batch;
-        $batch->width = 1;
         return true;
     }
 

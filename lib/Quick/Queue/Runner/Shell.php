@@ -50,8 +50,6 @@ class Quick_Queue_Runner_Shell
         $proc->putInput($cmdline . "; echo '<ok>'\n");
         $this->_procs[$jobtype][] = $proc;
 
-        $batch->width = 1;
-
         return true;
     }
 

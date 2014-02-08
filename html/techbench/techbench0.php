@@ -64,7 +64,7 @@ else {
 
 $request = new Quick_Rest_Request_Http();
 $response = new Quick_Rest_Response_Http();
-$app = new Quick_Rest_AppRunner();
+$appRunner = new Quick_Rest_AppRunner();
 
 $request->setParamsFromGlobals($GLOBALS);
 if (PHP_SAPI === 'cli') $response->setCli(true);
@@ -77,7 +77,7 @@ $routes = array(
     'GET::/updates' => "testController::updatesAction",
     'GET::/plaintext' => "testController::plaintextAction",
 );
-$app->setRoutes($routes);
+$appRunner->setRoutes($routes);
 
 function jsonAction( Quick_Rest_Request $request, Quick_Rest_Response $response, Quick_Rest_App $app ) {
     $msg = json_encode(array('message' => "Hello, World!"));
@@ -162,7 +162,7 @@ class testController
         $response->setHttpHeader("Content-Type", "text/plain; charset=\"UTF-8\"");
     }
 }
-$app->runCall($request, $response);
+$appRunner->runCall($request, $response);
 $response->emitResponse();
 
 // echo "duration = ", microtime(true) - $start_tm, "\n";
