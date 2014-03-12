@@ -148,19 +148,23 @@ class Quick_Queue_Engine_Generic
     }
 
     protected function _launchNewJobs( $limit ) {
-        $jobtype = $this->_scheduler->getJobtypeToRun();
-        if ($jobtype && ($batch = $this->_scheduler->getBatchToRun($jobtype, $limit))) {
-            if ($this->_runner->runBatch($jobtype, $batch)) {
-                // jobs started, count them and keep a copy for archival
-                $this->_runningCount += $batch->count;
-                $w = $batch->concurrency;
-                $this->_activeCount += $w;
-                $this->_runningWeight = $w * $this->_queueConfig->get('weight', $jobtype);
-                return true;
-            }
-            else {
-                // if unable to start the jobs, try later
-                $this->_store->ungetJobs($jobtype, array_keys($batch->jobs));
+        // try several times to launch something, the jobtype we pick may be locked by another thread
+        // 5 retries here raises throughput 27%, from 7300 to 9300 batches / sec (100 jobtypes)
+        for ($i=0; $i<5; ++$i) {
+            $jobtype = $this->_scheduler->getJobtypeToRun();
+            if ($jobtype && ($batch = $this->_scheduler->getBatchToRun($jobtype, $limit))) {
+                if ($this->_runner->runBatch($jobtype, $batch)) {
+                    // jobs started, count them and keep a copy for archival
+                    $this->_runningCount += $batch->count;
+                    $w = $batch->concurrency;
+                    $this->_activeCount += $w;
+                    $this->_runningWeight = $w * $this->_queueConfig->get('weight', $jobtype);
+                    return true;
+                }
+                else {
+                    // if unable to start the jobs, try later
+                    $this->_store->ungetJobs($jobtype, array_keys($batch->jobs));
+                }
             }
         }
         return false;

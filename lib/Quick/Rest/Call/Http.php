@@ -50,6 +50,13 @@ class Quick_Rest_Call_Http
         return $this;
     }
 
+    public function setHeaders( Array $namevals ) {
+        $this->_headers = array();
+        foreach ($namevals as $name => $value)
+            $this->_headers[$name] = "$name: $value";
+        return $this;
+    }
+
     public function getHeader( $name ) {
         if (!isset($this->_headers[$name])) return null;
         return substr($this->_headers[$name], strpos($this->_headers[$name], ": ")+2);

@@ -3,10 +3,12 @@
 /**
  * Store name=value pairs in a comma-separated string.
  * Access elements with get/set, retrieve the whole string by a string cast,
- * or cast to array to return the items as a hash.  The string cast urlencodes
- * commas embedded in values; names must not contain commas or equal signs.
+ * or cast to array to return the items as a hash.
  *
- * Copyright (C) 2013 Andras Radics
+ * Names must not contain commas or equal signs.  This implementation sweeps
+ * all chars not the name or the separator as part of the value.
+ *
+ * Copyright (C) 2013-2014 Andras Radics
  * Licensed under the Apache License, Version 2.0
  */
 
@@ -46,8 +48,10 @@ class Quick_Store_CsvString
     // cast to string to recover the name=value,name2=value2,... string
     // values must not contain commas, but equal signs are ok
     public function __toString( ) {
+        // http_build_query is much faster, but always urlencodes values
+        // return http_build_query(get_object_vars($this), '_', $this->_getSeparator());
         foreach ($this as $name => $value) {
-            if (strpos($value, ',') !== false) $value = str_replace(',', '%2C', $value);
+            //if (strpos($value, ',') !== false) $value = str_replace(',', '\\,', $value);
             $namevals[] = "$name=$value";
         }
         return isset($namevals) ? implode(',', $namevals) : "";
@@ -59,18 +63,17 @@ class Quick_Store_CsvString
     }
 
     protected function _fromString( $string, $separator ) {
-        foreach (explode($separator, $string) as $nameval) {
-            if (!$nameval) continue;
-            if (($pos = strpos($nameval, '=')) === false) {
-                $this->$nameval = '';
-            }
-            else {
-                $name = substr($nameval, 0, $pos);
-                if ($name > '')
-                    $this->$name = substr($nameval, $pos+1);
-                else
-                    throw new Quick_Store_Exception("$nameval: invalid csv string nameval, missing name");
-            }
+        $sepchar = $this->_getSeparator();
+
+        // split on (,)(name)=, leaving an empty string fragment "" at the start
+        $parts = preg_split("/(^|[$sepchar])([^=$sepchar]+)=/", $string, null, PREG_SPLIT_DELIM_CAPTURE);
+
+        $n = count($parts);
+        for ($i=2; $i<$n; $i+=3) {
+            $name = $parts[$i];
+            $value = $parts[$i+1];
+            $this->$name = $value;
         }
+        return;
     }
 }

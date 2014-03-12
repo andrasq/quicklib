@@ -49,6 +49,8 @@ class Quick_Logger_FileAtomicBuffered
         $now_tm = microtime(true);
         // buffering 50 lines captures 95% of the speedup available
         if (strlen($msg) < 10000 && $this->_bufferedCount < 50 && $now_tm < $this->_nextFlush_tm) {
+            $len = strlen($msg);
+            if ($msg[$len-1] !== "\n") $msg .= "\n";
             $this->_buffer .= $msg;
             ++$this->_bufferedCount;
         }

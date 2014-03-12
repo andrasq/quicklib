@@ -1,5 +1,10 @@
 <?
 
+/**
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
 class Quick_Fifo_FileReaderTest
     extends Quick_Test_Case
 {
@@ -54,11 +59,35 @@ class Quick_Fifo_FileReaderTest
         $this->assertTrue(file_exists($this->_infofile), "header file");
     }
 
-    public function testCloseAfterEofShouldRemoveMutexAndWorkFiles( ) {
+    public function testSetSharedModeShouldCauseOpenToNotCreatePidfile( ) {
+        $this->_cut->setSharedMode(true);
+        $this->_cut->open();
+        $this->assertFalse(file_exists($this->_pidfile), "mutex");
+    }
+
+    /**
+     * @expectedException       Quick_Fifo_Exception
+     */
+    public function testRsyncShouldThrowExceptionIfNotOwner( ) {
+        $this->_cut->setSharedMode(true);
+        $this->_cut->open();
+        $this->_cut->rsync();
+    }
+
+    /**
+     * @expectedException       Quick_Fifo_Exception
+     */
+    public function testFputsRsyncShouldThrowExceptionIfNotOwner( ) {
+        $this->_cut->setSharedMode(true);
+        $this->_cut->open();
+        $this->_cut->rsync();
+    }
+
+    public function testRsyncAfterEofShouldKeepMutexButRemoveDataFileAndHeaderFile( ) {
         $this->_cut->open();
         $this->_cut->fgets();
-        $this->_cut->close();
-        $this->assertFalse(file_exists($this->_pidfile));
+        $this->_cut->rsync();
+        $this->assertTrue(file_exists($this->_pidfile));
         $this->assertFalse(file_exists($this->_datafile));
         $this->assertFalse(file_exists($this->_infofile));
     }
@@ -102,13 +131,13 @@ class Quick_Fifo_FileReaderTest
         $this->assertEquals("line1\nline2\n", file_get_contents($this->_filename));
     }
 
-    public function testClearEofShouldSeeNewlyAddedLines( ) {
+    public function testRsyncShouldSeeNewlyAddedLines( ) {
         $this->_cut->fputs("line1");
         $this->_cut->open();
         $this->assertEquals("line1\n", $this->_cut->fgets());
         $this->assertFalse($this->_cut->fgets());
         $this->_cut->fputs("line2");
-        $this->_cut->clearEof();
+        $this->_cut->rsync();
         $this->assertEquals("line2\n", $this->_cut->fgets());
     }
 
@@ -161,14 +190,14 @@ class Quick_Fifo_FileReaderTest
         $this->assertEquals(filesize($this->_datafile), $cut->ftell());
         // 9000k/s
 
-        echo $timer->timeit(1, "write 100k 200B lines to fifo", array($this, '_testSpeedFputsFifo'), array($cut));
+        echo $timer->timeit(1, "fputs 100k 200B lines to fifo", array($this, '_testSpeedFputsFifo'), array($cut));
         // 125k/s using file_put_contents(LOCK_EX|FILE_APPEND)
 
         $lines = array(
             $str, $str, $str, $str, $str, $str, $str, $str, $str, $str,
             //$str, $str, $str, $str, $str, $str, $str, $str, $str, $str,
         );
-        echo $timer->timeit(1, "write 100k 200B lines to fifo", array($this, '_testSpeedWriteFifo'), array($cut, $lines));
+        echo $timer->timeit(1, "write 100k 200B lines to fifo, 10/", array($this, '_testSpeedWriteFifo'), array($cut, $lines));
         // 100k/s in batches of 1 or 4, 725k/s in batches of 10 (380k/s in batches of 20, 390k/s in batches of 50)
         // ... but on subsequent tests only 300k in batches of 10??  then 660k/s??
     }

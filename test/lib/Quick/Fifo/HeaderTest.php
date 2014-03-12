@@ -1,5 +1,10 @@
 <?
 
+/**
+ * Copyright (C) 2013 Andras Radics
+ * Licensed under the Apache License, Version 2.0
+ */
+
 class Quick_Fifo_HeaderTest
     extends Quick_Test_Case
 {
@@ -76,6 +81,18 @@ class Quick_Fifo_HeaderTest
         $this->assertEquals($id, $this->_readHeaderAsObject()->stuff);
     }
 
+    public function testAcquireShouldLockTheFile( ) {
+        $this->_cut->acquire();
+        $cmd = TEST_ROOT . "/../bin/flock";
+        $this->assertFalse($this->_tryToLockFile($this->_filename));
+    }
+
+    public function testReleaseShouldUnlockTheFile( ) {
+        $this->_cut->acquire();
+        $this->_cut->release();
+        $this->assertTrue($this->_tryToLockFile($this->_filename));
+    }
+
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
         echo "\n";
@@ -99,5 +116,11 @@ class Quick_Fifo_HeaderTest
     protected function _readHeaderAsObject( ) {
         $hdr = new Quick_Fifo_Header($this->_filename);
         return (object)$hdr->loadState();
+    }
+
+    protected function _tryToLockFile( $filename ) {
+        // flock() always succeeds from inside the same php process, so try the lock from another process
+        exec(TEST_ROOT . "/../bin/flock $filename", $output, $status);
+        return $status == 0 ? true : false;
     }
 }

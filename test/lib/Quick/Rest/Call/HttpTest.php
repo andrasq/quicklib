@@ -142,6 +142,12 @@ class Quick_Rest_Call_HttpTest
         $this->assertEquals(array('Header1' => 'one', 'Header2' => 'two'), $this->_cut->getHeaders());
     }
 
+    public function testSetHeadersShouldOverwriteHeaders( ) {
+        $this->_cut->setHeader('Header1', 'one');
+        $this->_cut->setHeaders(array('Header2' => 'two', 'Header3' => 'three'));
+        $this->assertEquals(array('Header2' => 'two', 'Header3' => 'three'), $this->_cut->getHeaders());
+    }
+
     public function testGetHeaderShouldReturnSavedHeaderElseNull( ) {
         $this->_cut->setHeader('Header1', 'one');
         $this->assertEquals('one', $this->_cut->getHeader('Header1'));

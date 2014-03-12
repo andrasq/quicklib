@@ -18,7 +18,16 @@ class Quick_Fifo_Header
 
     public function __construct( $filename ) {
         $this->_filename = $filename;
-        $this->_fp = $this->_openFile('r', 'for reading');
+        // mode 'c' appeared in php 5.2.6; non-truncating w+
+        $this->_fp = $this->_openFile('c+', 'for reading');
+    }
+
+    public function acquire( ) {
+        return flock($this->_fp, LOCK_EX | LOCK_NB);
+    }
+
+    public function release( ) {
+        flock($this->_fp, LOCK_UN);
     }
 
     public function getState( $field = null ) {

@@ -62,10 +62,9 @@ class Quick_Queue_Store_FileDirectoryTest
     public function testUngetJobsShouldRequeueTheJobs( ) {
         $this->_cut->addJobs("jobtype-5", array("a", "b"));
         $jobs = $this->_cut->getJobs("jobtype-5", 10);
+        $this->assertEquals(array(), $this->_cut->getJobs("jobtype-5", 1));
         $this->assertFalse(file_exists($this->_store->getFilename("jobtype-5")));
         $this->_cut->ungetJobs("jobtype-5", array_keys($jobs));
-        $this->assertTrue(file_exists($this->_store->getFilename("jobtype-5")));
-        $this->assertEquals("a\nb\n", file_get_contents($this->_store->getFilename("jobtype-5")));
         $jobs2 = $this->_cut->getJobs("jobtype-5", 10);
         // the unique keys only persist while the job is running, not through a requeue
         $this->assertEquals(array_values($jobs), array_values($jobs2));

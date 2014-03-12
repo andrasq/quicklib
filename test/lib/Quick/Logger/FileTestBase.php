@@ -71,7 +71,9 @@ class Quick_Logger_FileTestBase
 
 	$timer->calibrate($nloops, array($this, '_testSpeedNull'), array("parameter", $str));
         echo $timer->timeit($nloops, "append to file", array($this, '_testSpeedAppendToFile'), array($this->_filename, $str));
-        // 105k / sec short lines file_put_contents() appended
+        // 180k/s 3.6GHz // was: 105k / sec short lines file_put_contents() appended
+        echo $timer->timeit($nloops, "append to file atomic", array($this, '_testSpeedAppendToFileAtomic'), array($this->_filename, $str));
+        // 160k/s
 
 	foreach (array(
 	    //'file' => new Quick_Logger_File($this->_filename),
@@ -129,6 +131,10 @@ class Quick_Logger_FileTestBase
 
     public function _testSpeedAppendToFile( $filename, $str ) {
         file_put_contents($filename, $str, FILE_APPEND);
+    }
+
+    public function _testSpeedAppendToFileAtomic( $filename, $str ) {
+        file_put_contents($filename, $str, FILE_APPEND | LOCK_EX);
     }
 
     public function _testSpeedAppendWithObject( $cut, $str ) {

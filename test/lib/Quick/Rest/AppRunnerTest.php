@@ -91,6 +91,14 @@ class Quick_Rest_AppRunnerTest
         }
     }
 
+    public function testRunCallShouldInvokeSetCallInsteadOfPath( ) {
+        $runner = $this->_makeRunner($calls = array('a'));
+        $this->_cut->routeCall('ALL', 'CALLS', array($runner, 'a'));
+        $this->_cut->setCall('ALL::CALLS');
+        $request = $this->_makeRequest('GET', '/call/foo/bar', array(), array());
+        $this->_cut->runCall($request, $this->_makeResponse());
+    }
+
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
         $timer->calibrate(10000, array($this, '_testNullSpeed'), array(1, 2));

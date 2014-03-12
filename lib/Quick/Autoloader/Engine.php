@@ -42,6 +42,7 @@ class Quick_Autoloader_Engine
         // caller should verify paths, autoloader just tests if file exists
         if (strpos($extensions, ",") === false)
             // much faster to test for comma-list than to explode if not present
+            // 10% faster w/ realpath than with /../ path
             $this->_trees[] = array(realpath($dirname), $extensions);
         else
             foreach (explode(',', $extensions) as $ext)
@@ -67,10 +68,9 @@ class Quick_Autoloader_Engine
             return true;
         }
         else {
-            // php strips a leading \ from namespaced classnames before autoloading
             // optimize for the case of _ and \ separated components in a directory tree
             $classpath = '/' . str_replace('_', '/', str_replace('\\', '/', $classname));
-            foreach ($this->_trees as $info) {
+            foreach ($this->_trees as & $info) {
                 // cannot @include, it suppresses php parse errors too
                 if (file_exists($fn = $info[0] . $classpath . $info[1])) {
                     include $fn;
@@ -80,6 +80,9 @@ class Quick_Autoloader_Engine
             if (class_exists($classname, false) || interface_exists($classname, false)) return true;
 
             // if the fast path did not find a match, try the slow ones
+
+            // newer php strip one leading \ from namespaced classnames before autoloading; older php do not
+            if ($classname[0] === '\\') $classname = substr($classname, 1);
 
             if ($this->_nodes)
             foreach ($this->_nodes as $node) {
@@ -141,6 +144,9 @@ class Quick_Autoloader_Engine
 
         if (function_exists('spl_autoload_register')) {
             // nb: spl makes a small app 2% slower than using __autoload() directly
+            if (function_exists('__autoload'))
+                // using spl_autoload disables __autoload, so be nice and install it too
+                spl_autoload_register('__autoload');
             if (!spl_autoload_register(array($this, 'autoload')))
                 throw new Exception("unable to register autoloader");
         }

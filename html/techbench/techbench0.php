@@ -46,12 +46,21 @@ elseif (0) {
     $al = new Quick_Autoloader_QuickLoader(QUICKLIB_DIR);
     $al->register();
 }
-elseif (1) {
+elseif (0) {
     // 2.5% overhead for the spl autoloader stack vs bare __autoload (13.6 k/s)
     function __autoload( $classname ) {
         require QUICKLIB_DIR . '/' . str_replace('_', '/', $classname) . ".php";
     }
     spl_autoload_register('__autoload');
+}
+elseif (1) {
+    // another 1.5% overhead for a prefix test
+    spl_autoload_register(
+        function ($c) {
+            if (strpos($c, "Quick_") === 0)
+                return include QUICKLIB_DIR . '/' . str_replace('_', '/', $c) . ".php";
+        }
+    );
 }
 else {
     // __autoload is faster than require_once, and much faster than any multi-dir autoloader

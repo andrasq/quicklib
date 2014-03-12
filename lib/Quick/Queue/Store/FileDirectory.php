@@ -19,7 +19,9 @@ class Quick_Queue_Store_FileDirectory
     protected $_store;                          // directory with jobs in fifos
     protected $_keys;                           // unique number generator
     protected $_fifos = array();                // fifo cache
+    protected $_fifoCount = 0;
     protected $_pendingBatches = array();       // currently running batches of jobs by type
+    protected $_shareFifos = FALSE;
 
     public function __construct( Quick_Store_FileDirectory $store ) {
         $this->_store = $store;
@@ -33,8 +35,10 @@ class Quick_Queue_Store_FileDirectory
     }
 
     public function getJobs( $jobtype, $limit ) {
-        $jobs = $this->_assignKeysToJobs($this->_fetchJobs($jobtype, $limit));
-        $this->_trackJobs($jobtype, $jobs);
+        if (!$fifo = $this->_getFifo($jobtype)) return array();
+        $data = $this->_fetchJobs($fifo, $jobtype, $limit);
+        $jobs = & $this->_assignKeysToJobs($data);
+        $this->_trackJobs($fifo, $jobtype, $jobs);
         return $jobs;
     }
 
@@ -47,6 +51,7 @@ class Quick_Queue_Store_FileDirectory
     }
 
     // failed jobs are retried (requeued, but with fewer retries left)
+    // NOTE: the FileDirectory store does not limit retries
     public function retryJobs( $jobtype, Array $keys ) {
         return $this->ungetJobs($jobtype, $keys);
     }
@@ -75,10 +80,10 @@ class Quick_Queue_Store_FileDirectory
     }
 
     public function addJobs( $jobtype, Array $datasets ) {
-        $fifo = $this->_getFifo($jobtype);
+        $filename = $this->_store->getFilename($jobtype);
         foreach ($datasets as & $data)
             if (substr($data, -1) !== "\n") $data .= "\n";
-        $fifo->fputs(implode('', $datasets));
+        $ok = file_put_contents($filename, (implode('', $datasets)), FILE_APPEND | LOCK_EX);
         return $this;
     }
 
@@ -107,27 +112,28 @@ class Quick_Queue_Store_FileDirectory
         return $this->_store->getNames();
     }
 
-    protected function & _fetchJobs( $jobtype, $limit ) {
+    protected function & _fetchJobs( $fifo, $jobtype, $limit ) {
         $jobs = array();
-        $fifo = $this->_getFifo($jobtype);
-        for ($i=0; $i<$limit; ++$i) {
-            $job = $fifo->fgets();
-            if ($job === false) {
-                $fifo->clearEof();
-                $job = $fifo->fgets();
-            }
-            if ($job) {
-                $jobs[] = $job;
-            }
-            else {
-                $fifo->clearEof();
-                break;
+        if (!$this->_shareFifos || $fifo->acquire()) {
+            for ($i=0; $i<$limit; ++$i) {
+                // read fifo until empty.  When all jobs of this type finish, rysnc() then to clear EOF.
+                if (($job = $fifo->fgets()) !== false)
+                    $jobs[] = $job;
+                elseif (empty($this->_pendingBatches[$jobtype]) && !$jobs) {
+                    // if no more jobs of this jobtype, rsync to clear EOF
+                    // note: none running and none read during this pass either
+                    if ($fifo->feof()) $fifo->rsync();
+                }
+                else {
+                    if ($this->_shareFifos) $fifo->release();
+                    break;
+                }
             }
         }
         return $jobs;
     }
 
-    protected function _assignKeysToJobs( Array & $datasets ) {
+    protected function & _assignKeysToJobs( Array & $datasets ) {
         $jobs = array();
         foreach ($datasets as $data) {
             $jobs[$this->_keys->fetchHex()] = $data;
@@ -135,15 +141,15 @@ class Quick_Queue_Store_FileDirectory
         return $jobs;
     }
 
-    protected function _trackJobs( $jobtype, Array & $keyvals ) {
+    protected function _trackJobs( $fifo, $jobtype, Array & $keyvals ) {
         // track each fifo-continguous bunch of jobs as a separate batch, to know when to advance the fifo
-        $fifo = $this->_getFifo($jobtype);
-        $offset = $this->_getFifoOffset($fifo);
-        $this->_pendingBatches[$jobtype][$batchId = "b-" . $this->_keys->fetchHex()] = array(
-            'offset' => $offset,
-            'keys' => $keyvals,
-            'fifo' => $fifo,
-        );
+        if ($keyvals)
+            $this->_pendingBatches[$jobtype][$batchId = "b-" . $this->_keys->fetchHex()] = array(
+                'offset' => $fifo->ftell(),
+                'keys' => & $keyvals,
+                'fifo' => $fifo,
+                'batchid' => $batchId,
+            );
     }
 
     // unset the jobs from the pending batches.
@@ -157,25 +163,49 @@ class Quick_Queue_Store_FileDirectory
         // NOTE: must assign with & even though method is declared as returning a reference.
         // Php will generate an E_STRICT warning if the method does not return a reference.
         // No, there is no other way to know which form to use.
-        $info = & $this->_findBatchWithKey($jobtype, $key);
-        if (!$info || !$this->_isBatchContainsKeys($info['keys'], $keys)) {
-            // some jobs not from the presumptive batch, look everywhere
-            $this->_untrackJobsFromAllBatches($jobtype, $keys);
-        }
-        else {
-            // these jobs are just part of the batch, remove them leaving the others
-            foreach ($keys as $key) unset($info['keys'][$key]);
+        if ($key) {
+            $info = & $this->_findBatchWithKey($jobtype, $key);
+            if (!$info || !$this->_isBatchContainsKeys($info['keys'], $keys)) {
+                // some jobs not from the presumptive batch, look everywhere
+                $this->_untrackJobsFromAllBatches($jobtype, $keys);
+            }
+            else {
+                // these jobs are just part of the batch, remove them leaving the others
+                foreach ($keys as $key) unset($info['keys'][$key]);
+            }
         }
 
         // once batches are adjusted, we can checkpoint the fifo for the empty batches at the head
+        $this->_checkpointFifo($jobtype);
+    }
+
+    protected function _checkpointFifo( $jobtype ) {
         foreach ($this->_pendingBatches[$jobtype] as $batchId => & $info) {
             if (!$info['keys']) {
-                // when a batch frame is empty and the fifo has been checkpointed, no need for it
+//$pid = getmypid();
+//echo "BATCH DONE $pid\n";
+                // when a batch frame is empty all we need is to checkpoint the fifo read offset
                 // note: if fifos all the same, could combine the checkpoints into a single sync
-                $this->_checkpointFifo($info['fifo'], $info['offset']);
+                $readOffset = $info['offset'];
                 unset($this->_pendingBatches[$jobtype][$batchId]);
             }
             else break;
+        }
+
+        if (isset($readOffset)) {
+//echo "BATCH SYNCED $pid\n";
+            // rsync offsets are in contiguous ascending batch order, only need to sync the last one
+            // Note: Fifos can not be shared while pending tasks remain outstanding.
+            $info['fifo']->rsync($readOffset);
+        }
+
+        if (empty($this->_pendingBatches[$jobtype])) {
+            // Note: Fifos can not be shared while pending tasks remain outstanding.
+            // We have exclusive ownership of a shared fifo until we release it,
+            // and we only release it once all batches have finished.
+//echo "BATCH RELEASED $pid\n";
+            $info['fifo']->release();
+            unset($this->_pendingBatches[$jobtype]);
         }
     }
 
@@ -217,22 +247,19 @@ class Quick_Queue_Store_FileDirectory
         else {
             // garbage collect fifos, keep a finite LRU list instead of caching all
             // running with more than 500 jobtypes could run much slower
-            if (count($this->_fifos) > 500)
+            if ($this->_fifoCount > 500) {
                 array_splice($this->_fifos, 0, 200);
+                $this->_fifoCount -= 200;
+            }
             $fifo = new Quick_Fifo_FileReader($this->_store->getFilename($jobtype));
-            return $this->_fifos[$jobtype] = $fifo->open();
-
-            // note: maybe feed back fifo availability into scheduling decisions,
-            // to allow a second queue to run to handle the other jobtypes.
+            try {
+                $fifo->setSharedMode($this->_shareFifos);
+                $fifo = $fifo->open();
+                ++$this->_fifoCount;
+                return $this->_fifos[$jobtype] = $fifo;
+            }
+            catch (Exception $e) { return null; }
         }
-    }
-
-    protected function _getFifoOffset( $fifo ) {
-        return $fifo->ftell();
-    }
-
-    protected function _checkpointFifo( $fifo, $offset = null ) {
-        $fifo->rsync($offset);
     }
 
     protected function & _omitFifoMetafiles( & $names ) {

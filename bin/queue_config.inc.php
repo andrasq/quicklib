@@ -2,8 +2,8 @@
 
 global $queueConfig;
 $queueConfig = array(
-    'queuedir' => "/var/run/qqueue",
-    'jobsdir' => "/var/run/qqueue/jobs",
+    'queuedir' => "/tmp/queue",
+    'jobsdir' => "/tmp/queue/jobs",
     'jobs' => array(
         '__default' => array(
             // default settings
@@ -24,30 +24,13 @@ $queueConfig = array(
             // Any jobtype can use a generic {JOBTYPE} runner, no need to configure a job runner
             // note: time both w/ and w/o taskset 1; sometimes one is faster, sometimes the other
 
+// FIXME: batchsize and batchlimit broken with shared fifos! leave = 1
             'batchsize' => 1,
             'batchlimit' => 1,
         ),
         'jobtype1' => array(
             // 'runner' => "!/usr/bin/awk '{print \"{\\\"x\\\":\" $0 \"}\"}'",
             // Any jobtype can use a generic {JOBTYPE} runner, no need to configure a job runner
-        ),
-        'jobtype2' => array(
-        ),
-        'jobtype3' => array(
-        ),
-        'jobtype4' => array(
-        ),
-        'jobtype5' => array(
-        ),
-        'jobtype6' => array(
-        ),
-        'jobtype7' => array(
-        ),
-        'jobtype8' => array(
-        ),
-        'jobtype9' => array(
-        ),
-        'jobtype10' => array(
         ),
     ),
 );

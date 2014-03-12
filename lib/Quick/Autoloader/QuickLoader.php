@@ -13,14 +13,16 @@
  */
 
 class Quick_Autoloader_QuickLoader {
-    public function __construct( $dir ) {
+    public function __construct( $dir, $prefix = "" ) {
         $this->_dirname = $dir;
+        $this->_prefix = $prefix;
     }
 
     // Hand off autoloading to the general-purpose Quick_Autoloader.
     // Note that this autoloader is usable as a plug-in for MiniLoader,
     // a redesigned general-purpose autoloader.
     public function bootstrap( ) {
+//        require_once 'MiniLoader.php';
         $this->register();
         if (0) {
             $loader = Quick_Autoloader_MiniLoader::getInstance();
@@ -40,11 +42,15 @@ class Quick_Autoloader_QuickLoader {
     }
 
     public function map( $classname ) {
-        $path = str_replace('_', '/', $classname);
-        return "{$this->_dirname}/{$path}.php";
+        if ($this->_prefix && strpos($classname, $this->_prefix) !== 0)
+            return false;
+        $classpath = str_replace('_', '/', $classname);
+        return "{$this->_dirname}/{$classpath}.php";
     }
 
     public function autoload( $classname ) {
+        if ($this->_prefix && strpos($classname, $this->_prefix) !== 0)
+            return false;
         $classpath = str_replace('_', '/', $classname);
         require "{$this->_dirname}/{$classpath}.php";
     }

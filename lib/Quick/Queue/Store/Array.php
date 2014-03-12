@@ -32,10 +32,7 @@ class Quick_Queue_Store_Array
         return array_keys($this->jobs);
     }
 
-    protected function & _fetchJobs( $jobtype, $limit ) {
-        // parent class expects the fifo to get set by fetching
-        $this->_fifos[$jobtype] = "fifo";
-
+    protected function & _fetchJobs( $fifo, $jobtype, $limit ) {
         if (isset($this->jobs[$jobtype])) {
             $jobs = array_splice($this->jobs[$jobtype], 0, $limit);
             if (!$this->jobs[$jobtype]) unset($this->jobs[$jobtype]);
@@ -56,7 +53,7 @@ class Quick_Queue_Store_Array
     }
 
     protected function _getFifo( $jobtype ) {
-        return "fifo";
+        return new Quick_Fifo_Fake();
         throw new Quick_Queue_Exception("error: fifos should not be accessed from Queue_Store_Array");
     }
 

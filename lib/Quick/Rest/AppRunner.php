@@ -12,11 +12,17 @@ class Quick_Rest_AppRunner
     implements Quick_Rest_App
 {
     protected $_callbacks = array();
+    protected $_call;
 
     public function setRoutes( Array & $routes ) {
         // array of route mappings, eg. ('GET::call/name' => 'class::callback')
         $this->_callbacks = $routes;
         return $this;
+    }
+
+    // execute the call(s) as if matching this route
+    public function setCall( $call ) {
+        $this->_call = $call;
     }
 
     public function routeCall( $methods, $path, $callback ) {
@@ -33,7 +39,8 @@ class Quick_Rest_AppRunner
         if ($app === null) $app = $this;
         try {
             // note: method and path must match exactly, they are both case sensitive
-            if (isset($this->_callbacks[$path = "{$request->getMethod()}::{$request->getPath()}"]))
+            $path = isset($this->_call) ? $this->_call : "{$request->getMethod()}::{$request->getPath()}";
+            if (isset($this->_callbacks[$path]))
                 $callback = $this->_callbacks[$path];
             elseif (isset($this->_callbacks[$path = "ANY::{$request->getPath()}"]))
                 $callback = $this->_callbacks[$path];
