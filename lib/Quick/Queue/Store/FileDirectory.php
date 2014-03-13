@@ -204,7 +204,7 @@ class Quick_Queue_Store_FileDirectory
             // We have exclusive ownership of a shared fifo until we release it,
             // and we only release it once all batches have finished.
 //echo "BATCH RELEASED $pid\n";
-            $info['fifo']->release();
+            if ($this->_shareFifos) $info['fifo']->release();
             unset($this->_pendingBatches[$jobtype]);
         }
     }
