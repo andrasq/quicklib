@@ -1,0 +1,11 @@
+#!/usr/bin/env php
+<?php
+
+@$filename = $argv[1];
+$fp = @fopen($filename, "r");
+if (!$fp) exit(1);
+
+$ok = flock($fp, LOCK_EX | LOCK_NB);
+
+echo ($ok ? "ok\n" : "failed\n");
+exit ($ok ? 0 : 1);

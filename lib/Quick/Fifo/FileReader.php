@@ -77,7 +77,7 @@ class Quick_Fifo_FileReader
             // exclusive mode: only one consumer, mutex implemented with a pidfile
             $this->_mutex = new Quick_Proc_Pidfile($this->_pidfile);
             $this->_mutex->acquire();
-            $this->_isOwned = true;
+            $this->_isOwned = getmypid();
         }
 
         // if the datafile (renamed logfile) already exists, resume reading it
