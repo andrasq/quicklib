@@ -108,6 +108,7 @@ class Quick_Store_FileDirectoryTest
         $tm = microtime(true) - $tm;
         echo "AR: FileDirectory: set 10k items in $tm sec\n";
         // ext3: 1k in 0.045 sec, 10k in 0.51 sec, 100k in 6.43 sec
+        // ext3: 1k in 0.023 sec, 10k in 0.238 sec, 100k in >5 sec
         // shm: 10k in .12 sec
         // ext2: 10k in 1.22 sec (much slower than ext3/ext4)
         // ext4: 10k in .30 sec; 10k in 1.22 sec w/o journal

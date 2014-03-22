@@ -1,5 +1,14 @@
 The Quick Queue.
 
+Principles of Operation
+
+- all jobs are identified by a jobtype
+- all job data is passed as newline-terminated strings
+- job runners are created on demand, and harvested when no longer needed
+- job runners can be urls or shell scripts
+- jobs can run singly or in batches
+- only jobs of the identical jobtype can be grouped into a batch
+
 *----------------------------------------------------------------
 * NOTE: BETA CODE, NOT FINISHED, ONLY PARTIALLY TESTED.
 *----------------------------------------------------------------

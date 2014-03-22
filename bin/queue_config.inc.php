@@ -14,6 +14,7 @@ $queueConfig = array(
             // 'runner' => "!/usr/bin/awk '{print \"{\\\"x\\\":\" $0 \"}\"}'",
             // 340/s 1x1, 1300 4x1, 2900/s 10x1, 15000/s 10x10 20x4, 20800/s 100x1, 38400/s 100x4 500x2 500x4 500x10, 47000/s 2000x4
             // w/ universal + taskset 1: 350/s 1x1, 500/s 1x2 5x2, 3200/s 10x1, **7900/s 10x10 (!?), 21000/s 100x1, 34500/s 100x4, 45000/s 2000x4
+            // 2014-03-12: 425 1x1, 1600 4x1, 4000 10x1, 7700 20x1, 10000 10x4, 64000/s 400x1, 64000/s 400x4, 73000/s 2000x4
 
             'runner' => "http://localhost:80/pp/aradics/echo.php?op=echo&jobtype={JOBTYPE}&data={DATA}",
             // 1jt: 430/s 1x1, 6800,4400/s 4x1, 7100 1x4, 3200/s 10x1, 11000/s 100x1, 10600 10x4, 13000/s 100x4
@@ -23,6 +24,7 @@ $queueConfig = array(
             // 2.25% slower w/ universal runner: 425/s 1x1, 3500/s 10x1, 11500/s 40x1, BUT 20/s 100x1
             // Any jobtype can use a generic {JOBTYPE} runner, no need to configure a job runner
             // note: time both w/ and w/o taskset 1; sometimes one is faster, sometimes the other
+            // 2014-03-12: 3570/s 1x1, 7700 4x1, 8600 10x1, 9800 20x1, 9800 10x4, 7500 400x1, 11000 20x4
 
 // FIXME: batchsize and batchlimit broken with shared fifos! leave = 1
             'batchsize' => 1,

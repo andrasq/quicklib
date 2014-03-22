@@ -59,8 +59,12 @@ class Quick_Rest_Request_Http
         return isset($this->_params[$name]) ? $this->_params[$name] : null;
     }
 
+    public function getParamElseDefault( $name, $default ) {
+        return isset($this->_params[$name]) ? $this->_params[$name] : $default;
+    }
+
     public function requireParam( $name ) {
-        if (isset($this->_params[$name]) && (string)$this->_params[$name] > '')
+        if (isset($this->_params[$name]) && ($this->_params[$name] || (string)$this->_params[$name] > ""))
             return $this->_params[$name];
         else
             throw new Quick_Rest_Exception("required parameter ``$name'' missing or empty");
@@ -109,6 +113,7 @@ class Quick_Rest_Request_Http
     }
 
     public function getPostBody( ) {
+        // note: curl -d strips \n newlines from the input; use --data-binary to retain them (curl 7.29.0)
         if (isset($this->_rawPostData))
             return $this->_rawPostData;
         else

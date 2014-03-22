@@ -49,12 +49,12 @@ class Quick_Queue_Engine_Generic
         if ($runDurationLimit === null) $runDurationLimit = 30;
         if ($runTaskcountLimit === null) $runTaskcountLimit = 10000;
         $this->_runStopTime = $startTime + $runDurationLimit;
-        $this->_runStopCount = $this->_totalCount + $runTaskcountLimit;
+        $this->_runStopCount = $this->_runCount + $runTaskcountLimit;
 
         while ($this->_shouldContinueToRun()) {
             $this->_retireDoneJobs();
             if ($this->_shouldLaunchNewJobs()) {
-                if (!$this->_launchNewJobs($this->_runStopCount - $this->_totalCount - $this->_runningCount)) {
+                if (!$this->_launchNewJobs($this->_runStopCount - $this->_runCount - $this->_runningCount)) {
                     // no suitable jobs available to run, check again in a bit
                     usleep(200);
                 }
@@ -109,7 +109,7 @@ class Quick_Queue_Engine_Generic
     protected function _shouldContinueToRun( ) {
         return (
             microtime(true) < $this->_runStopTime &&
-            $this->_totalCount < $this->_runStopCount &&
+            $this->_runCount + $this->_runningCount < $this->_runStopCount &&
             true
         );
     }

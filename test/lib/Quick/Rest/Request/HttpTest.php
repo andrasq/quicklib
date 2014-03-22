@@ -98,6 +98,12 @@ class Quick_Rest_Request_HttpTest
         $this->assertEquals(3, $cut->getParam('c'));
     }
 
+    public function testGetParamElseDefaultShouldReturnParamOrDefault( ) {
+        $cut = $this->_makeRequestWithParams(array('a' => 1), array('b' => 2), array('c' => 3));
+        $this->assertEquals(1, $cut->getParam('a'));
+        $this->assertEquals(2, $cut->getParamElseDefault('z', 2));
+    }
+
     public function testSetParamOverridesCallParams( ) {
         $cut = $this->_makeRequestWithParams(array('a' => 1), array('a' => 2), array('a' => 3));
         $cut->setParam('a', 4444);
@@ -117,9 +123,11 @@ class Quick_Rest_Request_HttpTest
         $this->assertEquals(array('c' => 3), $cut->getUnknownParams($require, $optional));
     }
 
-    public function testRequireParamShouldReturnSetParamEvenIfEmpty( ) {
-        $cut = $this->_makeRequestWithParams(array('a' => 0), array(), array());
+    public function testRequireParamShouldReturnSetParamEvenIfFalse( ) {
+        $cut = $this->_makeRequestWithParams(array('a' => 0, 'b' => "0", 'c' => 0.0), array(), array());
         $this->assertEquals(0, $cut->requireParam('a'));
+        $this->assertEquals(0, $cut->requireParam('b'));
+        $this->assertEquals(0, $cut->requireParam('c'));
     }
 
     public function emptyParamProvider( ) {
