@@ -86,7 +86,7 @@ class Quick_Queue_Engine_Generic
 
         $la = explode(" ", trim(file_get_contents("/proc/loadavg")));
         $status->set('system', 'load', array($la[0], $la[1], $la[2]));
-        $status->set('system', 'threads', $la[3]);
+        $status->set('system', 'processes', $la[3]);
 
         $status->set('queue', 'runtime', $this->_totalTime);
         $status->set('queue', 'started', $this->_totalCount);
