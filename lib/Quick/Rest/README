@@ -1,0 +1,37 @@
+Quick REST MVC Application Framework
+
+The Quick Rest library is to allow very low overhead HTTP REST services
+using an MVC design pattern.  It started as an experiment after working
+with Zend and Silex/Symfony; the results (10-30x less overhead) were too
+promising to ignore.
+
+The Rest library is for building extensible services where testability,
+maintainability and speed matter.  Clever syntax and rarely used features
+were omitted in favor of clarity and efficiency.
+
+Efficiency:
+
+- routing is by direct lookup, not call path parsing.
+  Parsing is supported but not built in; lookup is O(1), parsing O(n).
+
+- all controller methods have the same signature: (request, response, app)
+  The runner only had to route, not manage the arg list.
+
+- beyond the basics, controller methods responsible for validating their
+  own arguments.  The basics are getParam() and requireParam().
+
+Clarity and Maintainability:
+
+- controller methods save results into the response object.  Controllers
+  do not output directly.
+
+- app runner emits the response.  Response formatting and error handling are
+  are done centrally by the app runner.
+
+- app supplies dependencies to MVC methods.  Global state is not
+  accessed except during setup.  This makes for easy unit testing.
+
+- request, response and app are created explicitly as part of app
+  config.  There are no hidden factories hidden from the programmer.
+  All setup, all configuration, all dependencies are built in plain
+  view (and thus easy to fix or modify).

@@ -5,7 +5,7 @@
  * keeping a small window of connections busy with back-to-back calls.
  * Curl_multi ties up all httpd's and makes apache non-responsive.
  *
- * Copyright (C) 2013 Andras Radics
+ * Copyright (C) 2014 Andras Radics
  * Licensed under the Apache License, Version 2.0
  */
 

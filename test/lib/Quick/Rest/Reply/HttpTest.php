@@ -74,6 +74,18 @@ class Quick_Rest_Reply_HttpTest
         $this->assertEquals(456, $this->_createFromString($message)->getStatus());
     }
 
+    public function testGetHeadersWillCombineSeparateCookiesLines( ) {
+        $header = $this->_makeHeader(array());
+        $header .= "\r\n";
+        $header .= "Set-Cookie: cookie1=1, cookie2=2\r\n";
+        $header .= "Set-Cookie: cookie3=3, cookie4=4\r\n";
+        $message = $header . "\r\n" . "body text";
+        $cut = $this->_createFromString($message);
+        $headers = $cut->getHeaders();
+        $this->assertContains('cookie3=3', $headers['Set-Cookie']);
+        $this->assertContains('cookie2=2', $headers['Set-Cookie']);
+    }
+
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
     }

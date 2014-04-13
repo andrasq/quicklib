@@ -70,7 +70,12 @@ class Quick_Rest_Reply_Http
             // list($name, $value) = @explode(':', $line, 2);
             // $hdr[$name] = trim($value, "\r\n \t");
             $pos = strcspn($line, ':');
-            $hdr[trim(substr($line, 0, $pos))] = trim(substr($line, $pos+1));
+            $name = trim(substr($line, 0, $pos));
+            if (isset($hdr[$name]))
+                // combine http headers sent on separate lines, ie Set-Cookie
+                $hdr[$name] .= '; ' . trim(substr($line, $pos+1));
+            else
+                $hdr[$name] = trim(substr($line, $pos+1));
         }
         return $hdr;
     }

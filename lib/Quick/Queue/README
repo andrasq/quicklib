@@ -1,32 +1,90 @@
 The Quick Queue.
 
+Overview
+
+The Quick Queue is a message queueing and job running system, allowing the
+embedding of asynchronous processing into any service.  It is efficient for
+many different simultaneous types of small quick-running tasks.
+
+Design Goals
+
+- robust
+  - available (guaranteed accept: can always queue messages, even when queue is stopped)
+    (message buffering, unbounded buffer capacity)
+  - durable (guaranteed delivery: once accepted, messages will be delivered)
+  - load tolerant (rate limiting)
+  - fault tolerant, guaranteed delivery (once accepted, messages retried until succeed)
+- simple
+  - simple interface (jobtype string, newline terminated data string)
+  - simple config (self-configuring, minimal admin overhead; no pre-declared runners)
+- fast
+  - non-blocking (senders never wait when sending messages)
+  - very low latency message queueing
+  - low job launch overhead single threaded
+  - high throughput multithreaded
+- scalable
+  - non-blocking
+  - fully asynchronous (no results returned from job)
+  - very many jobtypes (tens of thousands)
+  - distributable, no centralized anything
+- auditable
+  - jobs log a completion status message
+  - engine collects status for run-time stats
+
 Principles of Operation
 
-- all jobs are identified by a jobtype
-- all job data is passed as newline-terminated strings
+The Queue sends data (routes messages) for processing by jobs (to listeners).
+All data is tagged with a jobtype (routing key) to identify the job to run it
+(the recipients).  Jobs are configured to run (listeners are subscribed to) a
+jobtype.  Jobs do not have to already exists, they can be created and recycled
+automatically.
+
+Queued messages are scheduled and processed asynchronously.  In general,
+messages all of the same jobtype are run oldest first (with minor scheduling
+variations).
+
+Each message specifies the job type and the input data for the job.  Both job
+type and job data are text strings.  Jobs return status to the queue for the
+audit log, but not computation results. The queue does not (yet) have job
+chaining support built in.
+
+Although quite fast, the Quick Queue cheduling latencies may not make it ideal
+for very large scale sustained heterogeneous pub/sub message passing.
+
+Message queueing is non-blocking (just a quick mutex for the write), messages
+are never rejected, and are never discarded.  Messages do not live in or
+consume memory; message capacity is bounded by available disk space.  Inbound
+queueing can handle very high message rates (100k/s/thread in php).
+
+Jobs that process messages are created on demand as needed, they do not have
+to be explicitly managed and do not have to be always kept running.  Jobs can
+be web urls, which are invoked with http requests, or shell commands run in
+local subprocesses.
+
+Message processing (message delivery) is guaranteed-at-least-once:  messages
+are retried on error.  Messages can be processed singly or in batches.  Actual
+measured throughput is 10k/s activations singly (urls), 75k/s batched
+(cmdline) on 4-core 3.6 GHz AMD system.  These rates measure the overhead to
+fetch, route, dispatch, gather and log status.
+
+Implementation Details
+
+- fifo files used to buffer messages
+- all messages passed as newline terminated strings
+- message queueing is non-blocking appends (atomic w/ LOCK_EX)
+- message queueing is non-discarding (guaranteed accept)
+- message capacity is bounded by filesystem capacity, not memory
+- very fast inbound message queueing rates (100k/s/thread php, 1m/s/thread C)
+- very very fast bulk queueing or load balancing (copy) rates (10m/s php)
 - job runners are created on demand, and harvested when no longer needed
 - job runners can be urls or shell scripts
 - jobs can run singly or in batches
 - only jobs of the identical jobtype can be grouped into a batch
+- 10k url single-job activations / sec
+- 75k cmdline batched-job activations / sec
+- all jobs are identified by a jobtype string
 
-*----------------------------------------------------------------
-* NOTE: BETA CODE, NOT FINISHED, ONLY PARTIALLY TESTED.
-*----------------------------------------------------------------
-
-The queue arranges for data to be processed by one or more configured jobs.
-The jobs are configured to handle data of a particular jobtype.  The data is
-added to the queue labeled with the job type.
-
-As pub-sub:  the queue routes messages to listeners for processing.  Listeners
-are subscribed to receive messages matching given keys, and each message type
-is published with a distinct routing key.
-
-As job runners:  the queue schedules and runs jobs (queue tasks).  The runners
-are configured to handle specific job types.  The jobs are identified by a
-jobtype tag.  The job runner implementation is configurable, the initial rev
-will support both shell scripts and http calls.
-
-The high-level structure is:
+High-level structure:
   * store - holds messages indexed by jobtype
   * scheduler - selects jobtypes to run next
   * router - (tbd) finds listeners that need to see the message
