@@ -53,7 +53,7 @@ class Quick_Rest_AppRunner
                 $handler = new $class();
                 if (! $handler instanceof Quick_Rest_Controller)
                     throw new Quick_Rest_Exception("$class: app callback not a Quick_Rest_Controller");
-                $handler->$method($request, $response, $this);
+                $handler->$method($request, $response, $app);
                 return $response;
             }
             else {

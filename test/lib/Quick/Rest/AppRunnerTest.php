@@ -99,6 +99,20 @@ class Quick_Rest_AppRunnerTest
         $this->_cut->runCall($request, $this->_makeResponse());
     }
 
+    public function testRunCallShouldPassUserAppToActionMethod( ) {
+        $app = $this->getMock('Quick_Rest_App', array('getInstance'));
+        $controller = $this->getMock('Quick_Rest_Controller', array('testAction'));
+        //$this->_cut->routeCall('GET', '/test', array($controller, 'testAction'));
+        $routes = array(
+            'GET::/test' => array($controller, 'testAction')
+        );
+        $this->_cut->setRoutes($routes);
+        $request = $this->_makeRequest('GET', '/test', array(), array());
+        $response = $this->_makeResponse();
+        $controller->expects($this->once())->method('testAction')->with($request, $response, $app);
+        $this->_cut->runCall($request, $response, $app);
+    }
+
     public function xx_testSpeed( ) {
         $timer = new Quick_Test_Timer();
         $timer->calibrate(10000, array($this, '_testNullSpeed'), array(1, 2));
