@@ -16,12 +16,14 @@ class Quick_Rest_AppBase
 
     public function setInstance( $name, $instance ) {
         $this->_instances[$name] = $instance;
+        return $this;
     }
 
     public function setInstanceBuilder( $name, $builder ) {
         if (!is_callable($builder))
             throw new Quick_Rest_Exception("$name: builder is not callable");
         $this->_instanceBuilders[$name] = $builder;
+        return $this;
     }
 
     public function getInstance( $name ) {
