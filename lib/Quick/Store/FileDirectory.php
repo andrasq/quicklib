@@ -14,7 +14,7 @@
  */
 
 class Quick_Store_FileDirectory
-    implements Quick_Store
+    implements Quick_StoreAtomic
 {
     protected $_dir = '';
     protected $_prefix = '';

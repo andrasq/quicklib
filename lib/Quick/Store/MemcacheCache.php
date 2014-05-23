@@ -10,7 +10,7 @@
  */
 
 class Quick_Store_MemcacheCache
-    implements Quick_Store
+    implements Quick_StoreAtomic
 {
     protected $_memcache;
     protected $_prefix;

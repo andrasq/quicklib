@@ -11,7 +11,7 @@
  */
 
 class Quick_Store_ApcCache
-    implements Quick_Store
+    implements Quick_StoreAtomic
 {
     protected $_prefix;
     protected $_ttl = 10;
