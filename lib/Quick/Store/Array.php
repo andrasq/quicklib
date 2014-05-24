@@ -6,7 +6,7 @@
  */
 
 class Quick_Store_Array
-    implements Quick_Store
+    implements Quick_StoreAtomic
 {
     protected $_hash = array();
 
@@ -39,5 +39,9 @@ class Quick_Store_Array
         if (!isset($this->_hash[$name])) return false;
         unset($this->_hash[$name]);
         return true;
+    }
+
+    public function exists( $name ) {
+        return array_key_exists($name, $this->_hash);
     }
 }
