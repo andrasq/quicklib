@@ -3,7 +3,8 @@
 ini_set('precision', max(20, ini_get('precision')));
 
 error_reporting(E_ALL);
-//error_reporting(E_ALL & ~E_NOTICE);
+// mysql is deprecated, but as long as its there its still faster than mysqli or pdo
+error_reporting(E_ALL & ~E_NOTICE & ~E_DEPRECATED);
 
 // caller should have set up TEST_ROOT and EXT_ROOT
 

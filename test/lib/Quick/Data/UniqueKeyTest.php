@@ -32,6 +32,25 @@ class Quick_Data_UniqueKeyTest
         $this->assertEquals($key, $this->_cut->getKey());
     }
 
+    public function testMakeKeyShouldReturnDifferentKeys( ) {
+        $key = $this->_cut->getKey();
+        $this->assertNotEquals($key, $this->_cut->makeKey());
+        $this->assertNotEquals($key, $this->_cut->makeKey());
+    }
+
+    public function testFetchShouldReturnDifferentKeys( ) {
+        $key = $this->_cut->getKey();
+        for ($i=0; $i<1000; ++$i) {
+            $keys[] = $this->_cut->fetch();
+        }
+        $keys = array_unique($keys);
+        $this->assertEquals(1000, count($keys));
+    }
+
+    public function testResetShouldReturnTrue( ) {
+        $this->assertTrue($this->_cut->reset());
+    }
+
     public function testStringCastShouldReturnSameKeyAsGetKey( ) {
         $this->assertEquals((string)$this->_cut, $this->_cut->getKey());
     }

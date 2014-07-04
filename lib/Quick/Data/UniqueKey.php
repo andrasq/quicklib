@@ -12,6 +12,7 @@
  */
 
 class Quick_Data_UniqueKey
+    implements Quick_Data_Fetchable
 {
     protected $_key;
     protected $_host;
@@ -26,7 +27,11 @@ class Quick_Data_UniqueKey
         return $instance->makeKey();
     }
 
-    public function makeKey( ) {
+    public function reset( ) {
+        return true;
+    }
+
+    public function fetch( ) {
         static $last_key = 0;
 
         if (!($host = $this->_host)) {
@@ -50,6 +55,10 @@ class Quick_Data_UniqueKey
         // about 160k/s if host is not cached
         // uniqid() only does about 10k/sec, and .5k/sec on older kernels (limited by context switch speed?)
    }
+
+    public function makeKey( ) {
+        return $this->fetch();
+    }
 
     public function getKey( ) {
         return $this->_key ? $this->_key : $this->_key = $this->makeKey();

@@ -16,7 +16,7 @@
  */
 
 class Quick_Data_UniqueNumber
-    implements Quick_Db_Fetchable // Quick_Data_Fetchable
+    implements Quick_Data_Fetchable
 {
     protected $_fetcher = 'fetchDecimal';
 
