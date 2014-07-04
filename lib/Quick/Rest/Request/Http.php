@@ -3,7 +3,7 @@
 /**
  * REST request, conveys the request params to the call handler.
  *
- * Copyright (C) 2013 Andras Radics
+ * Copyright (C) 2013-2014 Andras Radics
  * Licensed under the Apache License, Version 2.0
  */
 
@@ -27,6 +27,17 @@ class Quick_Rest_Request_Http
         if (isset($globals['_FILES'])) $this->_files = $globals['_FILES'];
 
         $this->_params = $globals['_GET'] + $globals['_POST'];
+
+        // parse_str(), used by php for _GET and _POST, escapes \ and " as \\ and \".
+        // de-escape them to recover the actual argument
+        // Beware: parse_str() also replaces '.' and ' ' in parameter names with '_'.
+        if (get_magic_quotes_gpc()) {
+            foreach ($this->_params as & $v) {
+                // magic_quotes_gpc \-escapes ' " \ and \000
+                $v = str_replace(array("\\\"", "\\\x00", "\\'", "\\\\"), array("\"", "\x00", "'", "\\"), $v);
+            }
+        }
+
         return $this;
     }
 
